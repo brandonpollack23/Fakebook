@@ -1,8 +1,7 @@
 package system
 
-import akka.actor.Actor.Receive
 import akka.actor.{Actor, ActorLogging}
-import spray.http.{HttpRequest, HttpEntity}
+import spray.http.{HttpHeader, HttpRequest, HttpEntity}
 
 class F_BackBone extends Actor with ActorLogging {
   override def receive: Receive = ???
@@ -11,13 +10,21 @@ class F_BackBone extends Actor with ActorLogging {
 object F_BackBone {
   def props = ???
 
-  sealed trait GetInfo
+  sealed trait GetInfo //for id doesnt exist make sure to throw a failure with that in the message, this will make the future respond like this
+  //To complete the future with an exception you need send a Failure message to the sender. This is not done automatically when an actor throws an exception while processing a message. akka.actor.Status.Failure(exception)
   case class GetUserInfo(id: BigInt) extends GetInfo
   case class GetPageInfo(id: BigInt) extends GetInfo
   case class GetProfileInfo(id: BigInt) extends GetInfo
   case class GetPictureInfo(id: BigInt) extends GetInfo
   case class GetAlbumInfo(id: BigInt) extends GetInfo
   case class GetImage(id: BigInt) extends GetInfo
+
+  sealed trait PostInfo
+  case class UpdateUserData(id: BigInt, args: List[HttpHeader]) extends PostInfo
+  case class UpdatePageData(id: BigInt, args: List[HttpHeader]) extends PostInfo
+  case class UpdateProfileData(id: BigInt, args: List[HttpHeader]) extends PostInfo
+  case class UpdateImageData(id: BigInt, args: List[HttpHeader]) extends PostInfo
+  case class UpdateAlbumData(id: BigInt, args: List[HttpHeader]) extends PostInfo
 
   sealed trait PutInfo
   case class PutImage(image: HttpEntity) extends PutInfo//must send the original sender back the JSON object of the created image
