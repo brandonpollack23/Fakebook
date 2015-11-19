@@ -4,7 +4,7 @@ import akka.actor.{ActorRef, ActorLogging}
 import akka.util.Timeout
 import spray.http.HttpHeader
 import spray.routing.directives.OnCompleteFutureMagnet
-import spray.routing.{HttpServiceActor, Route}
+import spray.routing.{RequestContext, HttpServiceActor, Route}
 import spray.http.StatusCodes._
 
 import scala.concurrent.duration._
@@ -25,9 +25,9 @@ class F_Listener(backbone: ActorRef) extends HttpServiceActor with ActorLogging 
   val route: Route = request =>
     log.info("received request " + request)
 
-    path("data") { req =>
+  path("data") { req =>
       get { //URIs for actual data like pictures
-        genericGet(req.unmatchedPath.toString, GetImage)
+        genericGet(req, GetImage)
       } ~
       path("uploadimage") {
         put { req =>
@@ -37,11 +37,14 @@ class F_Listener(backbone: ActorRef) extends HttpServiceActor with ActorLogging 
     } ~
     path("user") { req =>
       get {
-        genericGet(req.unmatchedPath.toString, GetUserInfo)
+        genericGet(req, GetUserInfo)
       } ~
       post {
-        genericPost(req.unmatchedPath.toString, req.request.headers, UpdateUserData)
+        genericPost(req, req.request.headers, UpdateUserData)
       } ~
+      delete {
+        genericDelete(req, DeleteUser)
+      }
       path("newuser") {
         put { req =>
             genericPut(CreateUser(req.request))
@@ -50,10 +53,13 @@ class F_Listener(backbone: ActorRef) extends HttpServiceActor with ActorLogging 
     } ~
     path("page") { req =>
       get {
-        genericGet(req.unmatchedPath.toString, GetPageInfo)
+        genericGet(req, GetPageInfo)
       } ~
       post {
-        genericPost(req.unmatchedPath.toString, req.request.headers, UpdatePageData)
+        genericPost(req, req.request.headers, UpdatePageData)
+      } ~
+      delete {
+        genericDelete(req, DeletePage)
       }
       path("newpage") {
         put { req =>
@@ -63,26 +69,32 @@ class F_Listener(backbone: ActorRef) extends HttpServiceActor with ActorLogging 
     } ~
     path("profile") { req =>
       get {
-        genericGet(req.unmatchedPath.toString, GetProfileInfo)
+        genericGet(req, GetProfileInfo)
       } ~ //no need for "createprofile" they are created with the user and can be accessed through the JSON returned with that creation
       post {
-        genericPost(req.unmatchedPath.toString, req.request.headers, UpdateProfileData)
-      }
+        genericPost(req, req.request.headers, UpdateProfileData)
+      } //no need to delete profile, deleted with user
     } ~
     path("picture") { req =>
       get {
-        genericGet(req.unmatchedPath.toString, GetPictureInfo)
+        genericGet(req, GetPictureInfo)
       } ~ //same as for profile, when you upload an image the picture JSON is created
       post {
-        genericPost(req.unmatchedPath.toString, req.request.headers, UpdateImageData)
+        genericPost(req, req.request.headers, UpdateImageData)
+      } ~
+      delete {
+        genericDelete(req, DeletePicture)
       }
     } ~
     path("album") { req =>
       get {
-        genericGet(req.unmatchedPath.toString, GetAlbumInfo)
+        genericGet(req, GetAlbumInfo)
       } ~
       post {
-        genericPost(req.unmatchedPath.toString, req.request.headers, UpdateAlbumData)
+        genericPost(req, req.request.headers, UpdateAlbumData)
+      } ~
+      delete {
+        genericDelete(req, DeleteAlbum)
       }
       path("createalbum") {
         put { req =>
@@ -94,15 +106,17 @@ class F_Listener(backbone: ActorRef) extends HttpServiceActor with ActorLogging 
   /**
    * goes inside of a spray routing "get" and completes the passed message to the backbone given the id
    * it internally converts the remaining request path to a bigint, if this fails it completes with a failure
-   * @param id the string to be converted to bigint as an ID
+   * @param req the reques who contains the string to be converted to bigint as an ID
    * @param messageConstructor the case class message (constructor but can be passed with sugar) to compose the bigint into
    * @return returns a route for thed spray routing to go through and side effects the complete needed
    */
-  def genericGet(id: String, messageConstructor: (BigInt) => GetInfo): Route = {
-    try {
-      val idBig = BigInt(id)
-      pathEnd {
-        onComplete(OnCompleteFutureMagnet(backbone ? messageConstructor.apply(idBig))) {
+  def genericGet(req: RequestContext, messageConstructor: (BigInt) => GetInfo): Route = {
+    val id = req.unmatchedPath.toString
+
+    if (!id.contains("/")) { //if this is the last element only
+      try {
+        val idBig = BigInt(id)
+        onComplete(OnCompleteFutureMagnet((backbone ? messageConstructor.apply(idBig)).mapTo[String])) {
           case Success(entityJson) =>
             log.info("get completed successfully: " + messageConstructor + " " + "for " + idBig)
             complete(entityJson)
@@ -110,18 +124,29 @@ class F_Listener(backbone: ActorRef) extends HttpServiceActor with ActorLogging 
             log.error(ex, "get failed: " + messageConstructor + " for " + idBig)
             complete(InternalServerError, "Request could not be completed: \n" + ex.getMessage)
         }
+      } catch {
+        case e: NumberFormatException =>
+          log.info("illegally formatted id requested: " + id)
+          complete(BadRequest, "Numbers are formatted incorrectly")
       }
-    } catch {
-      case e: NumberFormatException =>
-        complete(BadRequest, "Numbers are formatted incorrectly")
     }
+    else reject
   }
 
-  def genericPost(id: String, args: List[HttpHeader], messageConstructor: (BigInt, List[HttpHeader]) => PostInfo) = {
-    try {
-      val idBig = BigInt(id)
-      pathEnd {
-        onComplete(OnCompleteFutureMagnet(backbone ? messageConstructor.apply(idBig, args))) {
+  /**
+   * same as above but for posts, I treid to write a more generic function to repeat rewriting code but it ended up just not being worth the thought
+   * @param req request who contains id to parse to bigint
+   * @param args arguments to change
+   * @param messageConstructor the message to send
+   * @return
+   */
+  def genericPost(req: RequestContext, args: List[HttpHeader], messageConstructor: (BigInt, List[HttpHeader]) => PostInfo) = {
+    val id = req.unmatchedPath.toString
+
+    if (!id.contains("/")) {
+      try {
+        val idBig = BigInt(id)
+        onComplete(OnCompleteFutureMagnet((backbone ? messageConstructor.apply(idBig, args)).mapTo[String])) {
           case Success(newEntityJson) =>
             log.info("post completed successfully: " + messageConstructor + " for " + idBig)
             complete(newEntityJson)
@@ -129,11 +154,13 @@ class F_Listener(backbone: ActorRef) extends HttpServiceActor with ActorLogging 
             log.error(ex, "get failed: " + messageConstructor + " for " + idBig)
             complete(InternalServerError, "Request could not be completed: \n" + ex.getMessage)
         }
+      } catch {
+        case e: NumberFormatException =>
+          log.info("illegally formatted id requested: " + id)
+          complete(BadRequest, "Numbers are formatted incorrectly")
       }
-    } catch {
-      case e: NumberFormatException =>
-        complete(BadRequest, "Numbers are formatted incorrectly")
     }
+    else reject
   }
 
   /**
@@ -143,7 +170,7 @@ class F_Listener(backbone: ActorRef) extends HttpServiceActor with ActorLogging 
    */
   def genericPut(message: PutInfo) = {
     pathEnd {
-      onComplete(OnCompleteFutureMagnet(backbone ? message)) {
+      onComplete(OnCompleteFutureMagnet((backbone ? message).mapTo[String])) {
         case Success(newEntityJson) =>
           log.info("put completed successfully: " + message)
           complete(newEntityJson)
@@ -152,6 +179,35 @@ class F_Listener(backbone: ActorRef) extends HttpServiceActor with ActorLogging 
           complete(InternalServerError, "Error putting entity: " + ex.getMessage)
       }
     }
+  }
+
+  /**
+   * almost identical to get, should probobly only be one function
+   * @param req identical
+   * @param messageConstructor identical
+   * @return route
+   */
+  def genericDelete(req: RequestContext, messageConstructor: (BigInt) => DeleteInfo) = {
+    val id = req.unmatchedPath.toString
+
+    if (!id.contains("/")) {
+      try {
+        val idBig = BigInt(id)
+        onComplete(OnCompleteFutureMagnet((backbone ? messageConstructor.apply(idBig)).mapTo[String])) {
+          case Success(newEntityJson) =>
+            log.info("delete completed successfully: " + messageConstructor + " for " + idBig)
+            complete(newEntityJson)
+          case Failure(ex) =>
+            log.error(ex, "get failed: " + messageConstructor + " for " + idBig)
+            complete(InternalServerError, "Request could not be completed: \n" + ex.getMessage)
+        }
+      } catch {
+        case e: NumberFormatException =>
+          log.info("illegally formatted id requested: " + id)
+          complete(BadRequest, "Numbers are formatted incorrectly")
+      }
+    }
+    else reject
   }
 
   override def receive = runRoute(route)
@@ -164,4 +220,5 @@ object F_Listener {
 
 /*ideas for speed improvements:
 parse out arguments before passing to backbone (might help with scaling to distributed system)
+genericDelete, Post, Put, and Get are all pretty similar, some functional composition is probobly possible, esp for delete and get
  */
