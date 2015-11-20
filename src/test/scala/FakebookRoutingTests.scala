@@ -10,6 +10,18 @@ class FakebookRoutingTests extends WordSpec with ScalatestRouteTest {
 
   "the route" should {
 
+    "succeed on requesting user info if it exists" in {
+      Get("/user/1234") ~> route ~> check {
+
+      }
+    }
+
+    "succeed on updating user info if they exist" in {
+      Post("/user/5678") ~> route ~> check{
+
+      }
+    }
+
     "succeed on path to create a user" in {
       Put("/user/newuser") ~> route ~> check {
 

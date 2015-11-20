@@ -4,7 +4,7 @@ import akka.actor.{Props, ActorRef, ActorLogging}
 import akka.util.Timeout
 import spray.http.HttpHeader
 import spray.routing.directives.OnCompleteFutureMagnet
-import spray.routing.{RequestContext, HttpServiceActor, Route}
+import spray.routing._
 import spray.http.StatusCodes._
 
 import scala.concurrent.duration._
@@ -25,13 +25,29 @@ class F_Listener(backbone: ActorRef) extends HttpServiceActor with ActorLogging 
   log.debug("beginning user log\n")
 
   //TODO write the main listener spawner that acts as the main spray server and binds these listeners to connections
+  //TODO there must be a way to make friend requests /user/request/id which puts a request in that user's object request list
   //TODO must watch the spray side http server actor and die with it
 
-  val route: Route = { uri =>
-    log.debug("request received " + uri.unmatchedPath)
-
+  val route: Route = { req =>
+    pathPrefix("user") {
+      log.debug("user path detected")
+      get {
+        genericGet(req, GetUserInfo)
+      } ~
+      post {
+        genericPost(req, req.request.headers, UpdateUserData)
+      } ~
+      delete {
+        genericDelete(req, DeleteUser)
+      } ~
+      path("newuser") {
+        put {
+          genericPut(CreateUser(req.request))
+        }
+      }
+    } ~
     pathPrefix("data") { req =>
-      log.debug("data path detected " + req.unmatchedPath + "\n")
+      log.debug("data path detected")
       get {
         genericGet(req, GetImage) //URIs for actual data like pictures
       } ~
@@ -41,25 +57,8 @@ class F_Listener(backbone: ActorRef) extends HttpServiceActor with ActorLogging 
           }
         }
     } ~
-    pathPrefix("user") { req =>
-      log.debug("user path detected" + req.unmatchedPath + "\n")
-      get {
-        genericGet(req, GetUserInfo)
-      } ~
-        post {
-          genericPost(req, req.request.headers, UpdateUserData)
-        } ~
-        delete {
-          genericDelete(req, DeleteUser)
-        }
-      pathPrefix("newuser") {
-        put { req =>
-          genericPut(CreateUser(req.request))
-        }
-      }
-    } ~
     pathPrefix("page") { req =>
-      log.debug("page path detected" + "\n")
+      log.debug("page path detected")
       get {
         genericGet(req, GetPageInfo)
       } ~
@@ -76,7 +75,7 @@ class F_Listener(backbone: ActorRef) extends HttpServiceActor with ActorLogging 
       }
     } ~
     pathPrefix("profile") { req =>
-      log.debug("profile path detected" + "\n")
+      log.debug("profile path detected")
       get {
         genericGet(req, GetProfileInfo)
       } ~ //no need for "createprofile" they are created with the user and can be accessed through the JSON returned with that creation
@@ -85,7 +84,7 @@ class F_Listener(backbone: ActorRef) extends HttpServiceActor with ActorLogging 
         } //no need to delete profile, deleted with user
     } ~
     pathPrefix("picture") { req =>
-      log.debug("picture path detected" + "\n")
+      log.debug("picture path detected")
       get {
         genericGet(req, GetPictureInfo)
       } ~ //same as for profile, when you upload an image the picture JSON is created
@@ -97,7 +96,7 @@ class F_Listener(backbone: ActorRef) extends HttpServiceActor with ActorLogging 
         }
     } ~
     pathPrefix("album") { req =>
-      log.debug("album path detected" + "\n")
+      log.debug("album path detected")
       get {
         genericGet(req, GetAlbumInfo)
       } ~
@@ -113,8 +112,6 @@ class F_Listener(backbone: ActorRef) extends HttpServiceActor with ActorLogging 
         }
       }
     }
-    log.error("no path matched" + "\n")
-    complete(NotFound, "That resource does not exist")
   }
 
   /**
@@ -183,15 +180,13 @@ class F_Listener(backbone: ActorRef) extends HttpServiceActor with ActorLogging 
    * @return
    */
   def genericPut(message: PutInfo) = {
-    pathEnd {
-      onComplete(OnCompleteFutureMagnet((backbone ? message).mapTo[String])) {
-        case Success(newEntityJson) =>
-          log.info("put completed successfully: " + message)
-          complete(newEntityJson)
-        case Failure(ex) =>
-          log.error(ex, "put failed: " + message)
-          complete(InternalServerError, "Error putting entity: " + ex.getMessage)
-      }
+    onComplete(OnCompleteFutureMagnet((backbone ? message).mapTo[String])) {
+      case Success(newEntityJson) =>
+        log.info("put completed successfully: " + message)
+        complete(newEntityJson)
+      case Failure(ex) =>
+        log.error(ex, "put failed: " + message)
+        complete(InternalServerError, "Error putting entity: " + ex.getMessage)
     }
   }
 
