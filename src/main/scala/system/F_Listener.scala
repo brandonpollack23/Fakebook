@@ -1,8 +1,9 @@
 package system
 
-import akka.actor.{Props, ActorRef, ActorLogging}
+import akka.actor.{Terminated, Props, ActorRef, ActorLogging}
 import akka.util.Timeout
-import spray.http.HttpHeader
+import spray.can.Http
+import spray.http.{HttpRequest, HttpHeader}
 import spray.routing.directives.OnCompleteFutureMagnet
 import spray.routing._
 import spray.http.StatusCodes._
@@ -24,9 +25,16 @@ class F_Listener(backbone: ActorRef) extends HttpServiceActor with ActorLogging 
 
   log.debug("beginning user log\n")
 
-  //TODO write the main listener spawner that acts as the main spray server and binds these listeners to connections
-  //TODO there must be a way to make friend requests /user/request/id which puts a request in that user's object request list
-  //TODO must watch the spray side http server actor and die with it
+  def receive = {
+    case Http.Bound =>
+      context.watch(sender)
+      context.become {
+        runRoute(route) orElse {
+          case Terminated(x) =>
+            context.stop(self)
+        }
+      }
+  }
 
   val route: Route = { req =>
     pathPrefix("user") {
@@ -35,7 +43,10 @@ class F_Listener(backbone: ActorRef) extends HttpServiceActor with ActorLogging 
         genericGet(req, GetUserInfo)
       } ~
       post {
-        genericPost(req, req.request.headers, UpdateUserData)
+        pathPrefix("request") {
+          genericPost(req, RequestFriend)
+        } ~
+        genericPost(req, AcceptFriend)
       } ~
       delete {
         genericDelete(req, DeleteUser)
@@ -63,7 +74,7 @@ class F_Listener(backbone: ActorRef) extends HttpServiceActor with ActorLogging 
         genericGet(req, GetPageInfo)
       } ~
         post {
-          genericPost(req, req.request.headers, UpdatePageData)
+          genericPost(req, UpdatePageData)
         } ~
         delete {
           genericDelete(req, DeletePage)
@@ -80,7 +91,7 @@ class F_Listener(backbone: ActorRef) extends HttpServiceActor with ActorLogging 
         genericGet(req, GetProfileInfo)
       } ~ //no need for "createprofile" they are created with the user and can be accessed through the JSON returned with that creation
         post {
-          genericPost(req, req.request.headers, UpdateProfileData)
+          genericPost(req, UpdateProfileData)
         } //no need to delete profile, deleted with user
     } ~
     pathPrefix("picture") { req =>
@@ -89,7 +100,7 @@ class F_Listener(backbone: ActorRef) extends HttpServiceActor with ActorLogging 
         genericGet(req, GetPictureInfo)
       } ~ //same as for profile, when you upload an image the picture JSON is created
         post {
-          genericPost(req, req.request.headers, UpdateImageData)
+          genericPost(req, UpdateImageData)
         } ~
         delete {
           genericDelete(req, DeletePicture)
@@ -101,7 +112,7 @@ class F_Listener(backbone: ActorRef) extends HttpServiceActor with ActorLogging 
         genericGet(req, GetAlbumInfo)
       } ~
         post {
-          genericPost(req, req.request.headers, UpdateAlbumData)
+          genericPost(req, UpdateAlbumData)
         } ~
         delete {
           genericDelete(req, DeleteAlbum)
@@ -146,18 +157,17 @@ class F_Listener(backbone: ActorRef) extends HttpServiceActor with ActorLogging 
 
   /**
    * same as above but for posts, I treid to write a more generic function to repeat rewriting code but it ended up just not being worth the thought
-   * @param req request who contains id to parse to bigint
-   * @param args arguments to change
+   * @param req request who contains id to parse to bigint and the parameters
    * @param messageConstructor the message to send
    * @return
    */
-  def genericPost(req: RequestContext, args: List[HttpHeader], messageConstructor: (BigInt, List[HttpHeader]) => PostInfo) = {
+  def genericPost(req: RequestContext, messageConstructor: (BigInt, HttpRequest) => PostInfo) = {
     val id = req.unmatchedPath.toString
 
     if (!id.contains("/")) {
       try {
         val idBig = BigInt(id)
-        onComplete(OnCompleteFutureMagnet((backbone ? messageConstructor.apply(idBig, args)).mapTo[String])) {
+        onComplete(OnCompleteFutureMagnet((backbone ? messageConstructor.apply(idBig, req.request)).mapTo[String])) {
           case Success(newEntityJson) =>
             log.info("post completed successfully: " + messageConstructor + " for " + idBig)
             complete(newEntityJson)
@@ -218,8 +228,6 @@ class F_Listener(backbone: ActorRef) extends HttpServiceActor with ActorLogging 
     }
     else reject
   }
-
-  override def receive = runRoute(route)
 }
 
 object F_Listener {
