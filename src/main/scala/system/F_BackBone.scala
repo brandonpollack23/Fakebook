@@ -26,7 +26,7 @@ object F_BackBone {
   case class UpdateImageData(id: BigInt, args: List[HttpHeader]) extends PostInfo
   case class UpdateAlbumData(id: BigInt, args: List[HttpHeader]) extends PostInfo
 
-  sealed trait PutInfo
+  sealed trait PutInfo //note: you can use the routing DSL parameter seq to extract parameters!
   case class PutImage(image: HttpEntity) extends PutInfo//must send the original sender back the JSON object of the created image
   case class CreateUser(httpRequest: HttpRequest) extends PutInfo //create user user arguments stored in httprequest and return new user JSON, they need a default profile, album, and unfilled fields for name etc
   case class CreatePage(httpRequest: HttpRequest) extends PutInfo //create page and return JSON
