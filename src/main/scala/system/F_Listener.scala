@@ -1,6 +1,6 @@
 package system
 
-import akka.actor.{ActorRef, ActorLogging}
+import akka.actor.{Props, ActorRef, ActorLogging}
 import akka.util.Timeout
 import spray.http.HttpHeader
 import spray.routing.directives.OnCompleteFutureMagnet
@@ -18,90 +18,104 @@ import scala.util.{Failure, Success}
 import language.postfixOps
 
 class F_Listener(backbone: ActorRef) extends HttpServiceActor with ActorLogging {
+  import context.dispatcher
+
   implicit val timeout = Timeout(5 seconds)
 
+  log.debug("beginning user log\n")
+
+  //TODO write the main listener spawner that acts as the main spray server and binds these listeners to connections
   //TODO must watch the spray side http server actor and die with it
 
-  val route: Route = request =>
-    log.info("received request " + request)
+  val route: Route = { uri =>
+    log.debug("request received " + uri.unmatchedPath)
 
-  path("data") { req =>
-      get { //URIs for actual data like pictures
-        genericGet(req, GetImage)
+    pathPrefix("data") { req =>
+      log.debug("data path detected " + req.unmatchedPath + "\n")
+      get {
+        genericGet(req, GetImage) //URIs for actual data like pictures
       } ~
-      path("uploadimage") {
-        put { req =>
-          genericPut(PutImage(req.request.entity))
+        path("uploadimage") {
+          put { req =>
+            genericPut(PutImage(req.request.entity))
+          }
         }
-      }
     } ~
-    path("user") { req =>
+    pathPrefix("user") { req =>
+      log.debug("user path detected" + req.unmatchedPath + "\n")
       get {
         genericGet(req, GetUserInfo)
       } ~
-      post {
-        genericPost(req, req.request.headers, UpdateUserData)
-      } ~
-      delete {
-        genericDelete(req, DeleteUser)
-      }
-      path("newuser") {
+        post {
+          genericPost(req, req.request.headers, UpdateUserData)
+        } ~
+        delete {
+          genericDelete(req, DeleteUser)
+        }
+      pathPrefix("newuser") {
         put { req =>
-            genericPut(CreateUser(req.request))
+          genericPut(CreateUser(req.request))
         }
       }
     } ~
-    path("page") { req =>
+    pathPrefix("page") { req =>
+      log.debug("page path detected" + "\n")
       get {
         genericGet(req, GetPageInfo)
       } ~
-      post {
-        genericPost(req, req.request.headers, UpdatePageData)
-      } ~
-      delete {
-        genericDelete(req, DeletePage)
-      }
+        post {
+          genericPost(req, req.request.headers, UpdatePageData)
+        } ~
+        delete {
+          genericDelete(req, DeletePage)
+        }
       path("newpage") {
         put { req =>
           genericPut(CreatePage(req.request))
         }
       }
     } ~
-    path("profile") { req =>
+    pathPrefix("profile") { req =>
+      log.debug("profile path detected" + "\n")
       get {
         genericGet(req, GetProfileInfo)
       } ~ //no need for "createprofile" they are created with the user and can be accessed through the JSON returned with that creation
-      post {
-        genericPost(req, req.request.headers, UpdateProfileData)
-      } //no need to delete profile, deleted with user
+        post {
+          genericPost(req, req.request.headers, UpdateProfileData)
+        } //no need to delete profile, deleted with user
     } ~
-    path("picture") { req =>
+    pathPrefix("picture") { req =>
+      log.debug("picture path detected" + "\n")
       get {
         genericGet(req, GetPictureInfo)
       } ~ //same as for profile, when you upload an image the picture JSON is created
-      post {
-        genericPost(req, req.request.headers, UpdateImageData)
-      } ~
-      delete {
-        genericDelete(req, DeletePicture)
-      }
+        post {
+          genericPost(req, req.request.headers, UpdateImageData)
+        } ~
+        delete {
+          genericDelete(req, DeletePicture)
+        }
     } ~
-    path("album") { req =>
+    pathPrefix("album") { req =>
+      log.debug("album path detected" + "\n")
       get {
         genericGet(req, GetAlbumInfo)
       } ~
-      post {
-        genericPost(req, req.request.headers, UpdateAlbumData)
-      } ~
-      delete {
-        genericDelete(req, DeleteAlbum)
-      }
+        post {
+          genericPost(req, req.request.headers, UpdateAlbumData)
+        } ~
+        delete {
+          genericDelete(req, DeleteAlbum)
+        }
       path("createalbum") {
         put { req =>
           genericPut(CreateAlbum(req.request))
         }
       }
     }
+    log.error("no path matched" + "\n")
+    complete(NotFound, "That resource does not exist")
+  }
 
   /**
    * goes inside of a spray routing "get" and completes the passed message to the backbone given the id
@@ -214,7 +228,7 @@ class F_Listener(backbone: ActorRef) extends HttpServiceActor with ActorLogging 
 }
 
 object F_Listener {
-  def props = ???
+  def props(backbone: ActorRef) = Props(new F_Listener(backbone))
 }
 
 
