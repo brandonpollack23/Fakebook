@@ -36,6 +36,7 @@ class F_Listener(backbone: ActorRef) extends HttpServiceActor with ActorLogging 
       }
   }
 
+  //NOTE: All IDs should be sent in HEX
   val route: Route = { req =>
     pathPrefix("user") {
       log.debug("user path detected")
@@ -137,7 +138,7 @@ class F_Listener(backbone: ActorRef) extends HttpServiceActor with ActorLogging 
 
     if (!id.contains("/")) { //if this is the last element only
       try {
-        val idBig = BigInt(id)
+        val idBig = BigInt(id, 16)
         onComplete(OnCompleteFutureMagnet((backbone ? messageConstructor.apply(idBig)).mapTo[String])) {
           case Success(entityJson) =>
             log.info("get completed successfully: " + messageConstructor + " " + "for " + idBig)
@@ -166,7 +167,7 @@ class F_Listener(backbone: ActorRef) extends HttpServiceActor with ActorLogging 
 
     if (!id.contains("/")) {
       try {
-        val idBig = BigInt(id)
+        val idBig = BigInt(id, 16)
         onComplete(OnCompleteFutureMagnet((backbone ? messageConstructor.apply(idBig, req.request)).mapTo[String])) {
           case Success(newEntityJson) =>
             log.info("post completed successfully: " + messageConstructor + " for " + idBig)
@@ -211,7 +212,7 @@ class F_Listener(backbone: ActorRef) extends HttpServiceActor with ActorLogging 
 
     if (!id.contains("/")) {
       try {
-        val idBig = BigInt(id)
+        val idBig = BigInt(id, 16)
         onComplete(OnCompleteFutureMagnet((backbone ? messageConstructor.apply(idBig)).mapTo[String])) {
           case Success(newEntityJson) =>
             log.info("delete completed successfully: " + messageConstructor + " for " + idBig)
