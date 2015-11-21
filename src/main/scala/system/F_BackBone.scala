@@ -1,6 +1,6 @@
 package system
 
-import akka.actor.{Actor, ActorLogging}
+import akka.actor.{Props, Actor, ActorLogging}
 import spray.http.{HttpHeader, HttpRequest, HttpEntity}
 
 class F_BackBone extends Actor with ActorLogging {
@@ -8,7 +8,7 @@ class F_BackBone extends Actor with ActorLogging {
 }
 
 object F_BackBone {
-  def props = ???
+  def props = Props[F_BackBone]
 
   sealed trait GetInfo //for id doesnt exist make sure to throw a failure with that in the message, this will make the future respond like this
   //To complete the future with an exception you need send a Failure message to the sender. This is not done automatically when an actor throws an exception while processing a message. akka.actor.Status.Failure(exception)
@@ -20,11 +20,13 @@ object F_BackBone {
   case class GetImage(id: BigInt) extends GetInfo
 
   sealed trait PostInfo
-  case class UpdateUserData(id: BigInt, args: List[HttpHeader]) extends PostInfo
-  case class UpdatePageData(id: BigInt, args: List[HttpHeader]) extends PostInfo
-  case class UpdateProfileData(id: BigInt, args: List[HttpHeader]) extends PostInfo
-  case class UpdateImageData(id: BigInt, args: List[HttpHeader]) extends PostInfo
-  case class UpdateAlbumData(id: BigInt, args: List[HttpHeader]) extends PostInfo
+  case class UpdateUserData(id: BigInt, httpRequest: HttpRequest) extends PostInfo
+  case class UpdatePageData(id: BigInt, httpRequest: HttpRequest) extends PostInfo
+  case class UpdateProfileData(id: BigInt, httpRequest: HttpRequest) extends PostInfo
+  case class UpdateImageData(id: BigInt, httpRequest: HttpRequest) extends PostInfo
+  case class UpdateAlbumData(id: BigInt, httpRequest: HttpRequest) extends PostInfo
+  case class RequestFriend(id: BigInt, httpRequest: HttpRequest) extends PostInfo
+  case class AcceptFriend(id: BigInt, httpRequest: HttpRequest) extends PostInfo //restful path is the user accepting, parameter is accepting friend
 
   sealed trait PutInfo //note: you can use the routing DSL parameter seq to extract parameters!
   case class PutImage(image: HttpEntity) extends PutInfo//must send the original sender back the JSON object of the created image
