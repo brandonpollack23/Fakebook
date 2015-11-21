@@ -1,14 +1,84 @@
 package system
 
-import akka.actor.{Props, Actor, ActorLogging}
-import spray.http.{HttpHeader, HttpRequest, HttpEntity}
+import akka.actor.{ActorRef, Props, Actor, ActorLogging}
+import spray.http.{HttpRequest, HttpEntity}
 
-class F_BackBone extends Actor with ActorLogging {
-  override def receive: Receive = ???
+
+class F_BackBone(f_pictureHandler: ActorRef, f_userHandler: ActorRef, f_pageProfileHandler: ActorRef) extends Actor with ActorLogging {
+  import system.F_BackBone._
+
+  def receive: Receive = {
+    //GET functions
+    case GetUserInfo(id) =>
+      f_userHandler forward GetUserInfo(id)
+
+    case GetPageInfo(id) =>
+      f_pageProfileHandler forward GetPageInfo(id)
+
+    case GetProfileInfo(id) =>
+      f_pageProfileHandler forward GetPageInfo(id)
+
+    case GetPictureInfo(id) =>
+      f_pageProfileHandler forward GetPageInfo(id)
+
+    case GetAlbumInfo(id) =>
+      f_pictureHandler forward GetAlbumInfo(id)
+
+    case GetImage(id) =>
+      f_pictureHandler forward GetImage(id)
+
+    //POST functions
+    case UpdateUserData(id, req) =>
+      f_userHandler forward UpdateUserData(id, req)
+
+    case UpdatePageData(id, req) =>
+      f_pageProfileHandler forward UpdatePageData(id, req)
+
+    case UpdateProfileData(id, req) =>
+      f_pageProfileHandler forward UpdateProfileData(id, req)
+
+    case UpdateImageData(id, req) =>
+      f_pictureHandler forward UpdateImageData(id, req)
+
+    case UpdateAlbumData(id, req) =>
+      f_pictureHandler forward UpdateAlbumData(id, req)
+
+    case RequestFriend(id, req) =>
+      f_userHandler forward RequestFriend(id, req)
+
+    case AcceptFriend(id, req) =>
+      f_userHandler forward RequestFriend(id, req)
+
+    //PUT functions
+    case PutImage(image) =>
+      f_pictureHandler forward PutImage(image)
+
+    case CreateUser(req) =>
+      f_userHandler forward CreateUser(req)
+
+    case CreatePage(req) =>
+      f_pageProfileHandler forward CreatePage(req)
+
+    case CreateAlbum(req) =>
+      f_pictureHandler forward CreateAlbum(req)
+
+    //DELETE functions
+    case DeleteUser(id) =>
+      f_userHandler forward DeleteUser(id)
+
+    case DeletePage(id) =>
+      f_pageProfileHandler forward DeletePage(id)
+
+    case DeletePicture(id) =>
+      f_pictureHandler forward DeletePicture(id)
+
+    case DeleteAlbum(id) =>
+      f_pictureHandler forward DeleteAlbum(id)
+  }
 }
 
 object F_BackBone {
-  def props = Props[F_BackBone]
+  def props(f_pictureHandler: ActorRef, f_userHandler: ActorRef, f_pageProfileHandler: ActorRef) = Props(new F_BackBone(f_pictureHandler, f_userHandler, f_pageProfileHandler))
 
   sealed trait GetInfo //for id doesnt exist make sure to throw a failure with that in the message, this will make the future respond like this
   //To complete the future with an exception you need send a Failure message to the sender. This is not done automatically when an actor throws an exception while processing a message. akka.actor.Status.Failure(exception)
