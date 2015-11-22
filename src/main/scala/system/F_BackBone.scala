@@ -1,5 +1,7 @@
 package system
 
+import java.text.SimpleDateFormat
+
 import akka.actor.{ActorRef, Props, Actor, ActorLogging}
 import spray.http.{HttpRequest, HttpEntity}
 
@@ -74,6 +76,10 @@ class F_BackBone(f_pictureHandler: ActorRef, f_userHandler: ActorRef, f_pageProf
 
     case DeleteAlbum(id) =>
       f_pictureHandler forward DeleteAlbum(id)
+
+    //InterSystem messages
+    case CreateUserProfile(userID) =>
+      f_pageProfileHandler forward CreateUserProfile(userID)
   }
 }
 
@@ -109,4 +115,8 @@ object F_BackBone {
   case class DeletePage(id: BigInt) extends DeleteInfo
   case class DeletePicture(id: BigInt) extends DeleteInfo
   case class DeleteAlbum(id: BigInt) extends DeleteInfo //will not delete default album, deletes all pictures in album
+
+  case class CreateUserProfile(userID: BigInt) //replies with user profile id
+
+  val dateFormatter = new SimpleDateFormat("'M'MM'D'dd'Y'yyyy")
 }

@@ -8,3 +8,11 @@ case class F_User(firstName: String, lastName: String, biography: String, age: I
                    friendRequests: List[BigInt],
                    profileID: BigInt,
                    ID: BigInt)
+
+object F_User {
+  val lastNameString = "lastname"
+  val firstNameString = "firstname"
+  val bioString = "bio"
+  val ageString = "age"
+  val dobString = "dob"
+}
