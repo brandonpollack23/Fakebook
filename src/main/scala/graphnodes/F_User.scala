@@ -15,4 +15,6 @@ object F_User {
   val bioString = "bio"
   val ageString = "age"
   val dobString = "dob"
+
+  val changableParameters = List(lastNameString, firstNameString, bioString, ageString, dobString)
 }

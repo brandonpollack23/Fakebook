@@ -3,7 +3,7 @@ package system
 import akka.actor.{Terminated, Props, ActorRef, ActorLogging}
 import akka.util.Timeout
 import spray.can.Http
-import spray.http.{HttpRequest, HttpHeader}
+import spray.http.HttpRequest
 import spray.routing.directives.OnCompleteFutureMagnet
 import spray.routing._
 import spray.http.StatusCodes._

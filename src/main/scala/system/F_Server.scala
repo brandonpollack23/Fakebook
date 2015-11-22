@@ -1,16 +1,16 @@
 package system
 
-import akka.actor.Actor.Receive
 import akka.actor.{Actor, ActorLogging}
 import akka.util.Timeout
 import spray.can.Http
+import system.workers._
 
 import scala.concurrent.duration._
 
 class F_Server extends Actor with ActorLogging {
   implicit val timeout: Timeout = 1 second
 
-  val backbone = context.actorOf(F_BackBone.props(F_PictureHandler.props, F_UserHandler.props, F_PageProfileHandler.props))
+  val backbone = context.actorOf(F_BackBone.props(context.actorOf(F_PictureHandler.props(backbone)), context.actorOf(F_UserHandler.props(backbone)), context.actorOf(F_PageProfileHandler.props(backbone))))
 
   def receive = {
     case _: Http.Connected =>

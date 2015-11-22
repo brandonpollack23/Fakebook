@@ -1,9 +1,12 @@
 package system
 
+import java.security.SecureRandom
 import java.text.SimpleDateFormat
 
 import akka.actor.{ActorRef, Props, Actor, ActorLogging}
 import spray.http.{HttpRequest, HttpEntity}
+
+import scala.collection.mutable.Map
 
 
 class F_BackBone(f_pictureHandler: ActorRef, f_userHandler: ActorRef, f_pageProfileHandler: ActorRef) extends Actor with ActorLogging {
@@ -119,4 +122,19 @@ object F_BackBone {
   case class CreateUserProfile(userID: BigInt) //replies with user profile id
 
   val dateFormatter = new SimpleDateFormat("'M'MM'D'dd'Y'yyyy")
+
+  implicit val randomIDGenerator = new SecureRandom()
+
+  /**
+   * Generatess a unique secure random ID for the map
+   * @param map  map to check secure random ID against for uniquness
+   * @return
+   */
+  def getUniqueRandomBigInt(map: Map[BigInt, _]): BigInt = {
+    def isUnique(x: BigInt) = !map.contains(x)
+
+    val x = BigInt(256, randomIDGenerator) //use 256 bits b/c sha256 does so that is low on collisions right?
+    if(isUnique(x)) x
+    else getUniqueRandomBigInt(map)
+  }
 }
