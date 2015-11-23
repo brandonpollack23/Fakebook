@@ -119,6 +119,8 @@ object F_BackBone {
   case class DeletePicture(id: BigInt) extends DeleteInfo
   case class DeleteAlbum(id: BigInt) extends DeleteInfo //will not delete default album, deletes all pictures in album
 
+  //System messages and functions
+
   case class CreateUserProfile(userID: BigInt) //replies with user profile id
 
   val dateFormatter = new SimpleDateFormat("'M'MM'D'dd'Y'yyyy")

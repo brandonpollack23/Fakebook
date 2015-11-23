@@ -1,5 +1,7 @@
 package system
 
+import java.io.File
+
 import akka.actor.{Terminated, Props, ActorRef, ActorLogging}
 import akka.util.Timeout
 import spray.can.Http
@@ -37,87 +39,88 @@ class F_Listener(backbone: ActorRef) extends HttpServiceActor with ActorLogging 
   }
 
   //NOTE: All IDs should be sent in HEX
-  val route: Route = { req =>
+  //TODO routes broke when i had intermediate lambdas for some reason, but i needed the unmatched path, have to fix it
+  val route: Route = { request =>
     pathPrefix("user") {
       log.debug("user path detected")
-      get {
+      get { req =>
         genericGet(req, GetUserInfo)
       } ~
-      post {
+      post { req =>
         pathPrefix("request") {
           genericPost(req, RequestFriend)
         } ~
         genericPost(req, HandleFriendRequest)
       } ~
-      delete {
+      delete { req =>
         genericDelete(req, DeleteUser)
       } ~
       path("newuser") {
-        put {
+        put { req =>
           genericPut(CreateUser(req.request))
         }
       }
     } ~
-    pathPrefix("data") { req =>
+    pathPrefix("data") {
       log.debug("data path detected")
-      get {
-        genericGet(req, GetImage) //URIs for actual data like pictures
+      get { req =>
+        getImage(req) //URIs for actual data like pictures
       } ~
-        path("uploadimage") {
-          put { req =>
-            genericPut(PutImage(req.request.entity))
-          }
+      path("uploadimage") {
+        put { req =>
+          genericPut(PutImage(req.request.entity))
         }
+      }
     } ~
-    pathPrefix("page") { req =>
+    pathPrefix("page") {
       log.debug("page path detected")
-      get {
+      get { req =>
         genericGet(req, GetPageInfo)
       } ~
-        post {
-          genericPost(req, UpdatePageData)
-        } ~
-        delete {
-          genericDelete(req, DeletePage)
-        }
+      post { req =>
+        genericPost(req, UpdatePageData)
+      } ~
+      delete { req =>
+        genericDelete(req, DeletePage)
+      }
       path("newpage") {
         put { req =>
           genericPut(CreatePage(req.request))
         }
       }
     } ~
-    pathPrefix("profile") { req =>
+    pathPrefix("profile") {
       log.debug("profile path detected")
-      get {
+      get { req =>
         genericGet(req, GetProfileInfo)
       } ~ //no need for "createprofile" they are created with the user and can be accessed through the JSON returned with that creation
-        post {
-          genericPost(req, UpdateProfileData)
-        } //no need to delete profile, deleted with user
+      post { req =>
+        genericPost(req, UpdateProfileData)
+      } //no need to delete profile, deleted with user
     } ~
-    pathPrefix("picture") { req =>
+    pathPrefix("picture") {
       log.debug("picture path detected")
-      get {
+      get { req =>
         genericGet(req, GetPictureInfo)
       } ~ //same as for profile, when you upload an image the picture JSON is created
-        post {
-          genericPost(req, UpdateImageData)
-        } ~
-        delete {
-          genericDelete(req, DeletePicture)
-        }
+      post { req =>
+        genericPost(req, UpdateImageData)
+      } ~
+      delete { req =>
+        genericDelete(req, DeletePicture)
+      }
     } ~
-    pathPrefix("album") { req =>
+    pathPrefix("album") {
       log.debug("album path detected")
-      get {
+      get { req =>
         genericGet(req, GetAlbumInfo)
       } ~
-        post {
-          genericPost(req, UpdateAlbumData)
-        } ~
-        delete {
-          genericDelete(req, DeleteAlbum)
-        }
+      post { req =>
+        genericPost(req, UpdateAlbumData)
+      } ~
+      delete { req =>
+        genericDelete(req, DeleteAlbum)
+      }
       path("createalbum") {
         put { req =>
           genericPut(CreateAlbum(req.request))
@@ -219,6 +222,34 @@ class F_Listener(backbone: ActorRef) extends HttpServiceActor with ActorLogging 
             complete(newEntityJson)
           case Failure(ex) =>
             log.error(ex, "get failed: " + messageConstructor + " for " + idBig)
+            complete(InternalServerError, "Request could not be completed: \n" + ex.getMessage)
+        }
+      } catch {
+        case e: NumberFormatException =>
+          log.info("illegally formatted id requested: " + id)
+          complete(BadRequest, "Numbers are formatted incorrectly")
+      }
+    }
+    else reject
+  }
+
+  /**
+   * Gets image and streams it back from file
+   * @param req request context
+   * @return something?
+   */
+  def getImage(req: RequestContext) = {
+    val id = req.unmatchedPath.toString
+
+    if (!id.contains("/")) { //if this is the last element only
+      try {
+        val idBig = BigInt(id, 16)
+        onComplete(OnCompleteFutureMagnet((backbone ? GetImage(idBig)).mapTo[File])) {
+          case Success(image) =>
+            log.info("get completed successfully: " + GetImage + " " + "for " + idBig)
+            getFromFile(image)
+          case Failure(ex) =>
+            log.error(ex, "get failed: " + GetImage + " for " + idBig)
             complete(InternalServerError, "Request could not be completed: \n" + ex.getMessage)
         }
       } catch {
