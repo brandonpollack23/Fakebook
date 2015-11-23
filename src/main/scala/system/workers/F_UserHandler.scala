@@ -137,47 +137,42 @@ class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
    * @param request request
    */
   def updateUserData(id: BigInt, request: HttpRequest) {
-    @tailrec
     def updateCurrentUserInstance(user: F_User, params: Uri.Query, parametersRemaining: List[String]): F_User = {
       if(parametersRemaining.isEmpty) {
         user
       } else {
         val currentParameter = parametersRemaining.head
         params.get(currentParameter) match {
-          case Some(value) =>
-            if(currentParameter == lastNameString) updateCurrentUserInstance(user.copy(lastName = value), params, parametersRemaining.tail)
-            else if(currentParameter == firstNameString) updateCurrentUserInstance(user.copy(firstName = value), params, parametersRemaining.tail)
-            else if(currentParameter == bioString) updateCurrentUserInstance(user.copy(biography = value), params, parametersRemaining.tail)
-            else if(currentParameter == ageString) updateCurrentUserInstance(user.copy(age = value.toInt), params, parametersRemaining.tail)
-            else if(currentParameter == dobString) updateCurrentUserInstance(user.copy(dateOfBirth = dateFormatter.parse(value)), params, parametersRemaining.tail)
-            else throw new IllegalArgumentException("there is no case to handle such parameter in the list (system issue)")
+          case Some(value) => //TODO make swittch statement with ` `
+            currentParameter match {
+              case `lastNameString` => updateCurrentUserInstance(user.copy(lastName = value), params, parametersRemaining.tail)
+              case `firstNameString` => updateCurrentUserInstance(user.copy(firstName = value), params, parametersRemaining.tail)
+              case `bioString` => updateCurrentUserInstance(user.copy(biography = value), params, parametersRemaining.tail)
+              case `ageString` => updateCurrentUserInstance(user.copy(age = value.toInt), params, parametersRemaining.tail)
+              case `dobString` => updateCurrentUserInstance(user.copy(dateOfBirth = dateFormatter.parse(value)), params, parametersRemaining.tail)
+              case _ => throw new IllegalArgumentException("there is no case to handle such parameter in the list (system issue)")
+            }
           case None =>
             updateCurrentUserInstance(user, params, parametersRemaining.tail)
         }
       }
     }
 
-    val user = users.get(id) match {
-      case Some(x) => x
-      case None =>
-        sender ! noSuchUserFailure(id)
-        return
-    }
+    try{
+      val user = users.get(id).getOrElse(throw noSuchUserException(List(id)))
 
-    val params = request.uri.query
+      val params = request.uri.query
 
 
-      val updatedUser = try {
-        updateCurrentUserInstance(user, params, changableParameters)
+      val updatedUser = updateCurrentUserInstance(user, params, changableParameters)
+
+      users.put(id, updatedUser)
+
+      sender ! updatedUser //TODO make JSON
     } catch {
       case ex: Exception =>
         sender ! actor.Status.Failure(ex)
-        return
     }
-
-    users.put(id, updatedUser)
-
-    sender ! updatedUser //TODO make JSON
   }
 
   /**
