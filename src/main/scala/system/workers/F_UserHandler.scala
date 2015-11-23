@@ -10,8 +10,9 @@ import graphnodes.F_User
 import graphnodes.F_User._
 import spray.http.{HttpRequest, Uri}
 import system.F_BackBone._
+import system.jsonFiles.F_UserJSON
 
-import scala.concurrent.Await
+import scala.concurrent.{Future, Await}
 import scala.concurrent.duration._
 
 import scala.language.postfixOps
@@ -19,6 +20,7 @@ import scala.xml.MalformedAttributeException
 
 class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
   import F_UserHandler._
+  import context.dispatcher
 
   implicit val timeout = Timeout(5 seconds)
 
@@ -29,9 +31,13 @@ class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
       createUser(request)
 
     case GetUserInfo(id) =>
-      users.get(id) match {
-        case Some(user) => sender ! user //TODO change to JSON
-        case None => sender ! noSuchUserFailure(id)
+      val replyTo = sender
+
+      Future {
+        users.get(id) match {
+          case Some(user) => replyTo ! F_UserJSON.getJSON(user)
+          case None => replyTo ! noSuchUserFailure(id)
+        }
       }
 
     case UpdateUserData(id, request) =>
@@ -82,7 +88,10 @@ class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
     try {
       val newUser = (F_User.apply _).tupled(getAllComponents(id, params))
       users.put(id, newUser)
-      sender ! newUser //TODO change to JSON
+      val replyTo = sender
+      Future {
+        replyTo ! F_UserJSON.getJSON(newUser)
+      }
     } catch {
       case ex: Exception =>
         sender ! actor.Status.Failure(ex)
@@ -101,7 +110,7 @@ class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
       } else {
         val currentParameter = parametersRemaining.head
         params.get(currentParameter) match {
-          case Some(value) => //TODO make swittch statement with ` `
+          case Some(value) =>
             currentParameter match {
               case `lastNameString` => updateCurrentUserInstance(user.copy(lastName = value), params, parametersRemaining.tail)
               case `firstNameString` => updateCurrentUserInstance(user.copy(firstName = value), params, parametersRemaining.tail)
@@ -126,7 +135,11 @@ class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
 
       users.put(id, updatedUser)
 
-      sender ! updatedUser //TODO make JSON
+      val replyTo = sender
+
+      Future{
+        replyTo ! F_UserJSON.getJSON(updatedUser)
+      }
     } catch {
       case ex: Exception =>
         sender ! actor.Status.Failure(ex)

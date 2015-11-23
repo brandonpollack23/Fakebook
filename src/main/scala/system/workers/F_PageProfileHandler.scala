@@ -4,6 +4,7 @@ import akka.actor.{Props, ActorRef, ActorLogging, Actor}
 import system.F_BackBone._
 
 //TODO implement the logic for each transaction
+//TODO handle posts
 class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
   def receive = ???
 }

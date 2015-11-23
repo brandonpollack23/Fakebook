@@ -20,6 +20,8 @@ import scala.util.{Failure, Success}
 
 import language.postfixOps
 
+//TODO edit and delte posts
+
 class F_Listener(backbone: ActorRef) extends HttpServiceActor with ActorLogging {
   import context.dispatcher
 
@@ -244,10 +246,10 @@ class F_Listener(backbone: ActorRef) extends HttpServiceActor with ActorLogging 
     if (!id.contains("/")) { //if this is the last element only
       try {
         val idBig = BigInt(id, 16)
-        onComplete(OnCompleteFutureMagnet((backbone ? GetImage(idBig)).mapTo[File])) {
+        onComplete(OnCompleteFutureMagnet((backbone ? GetImage(idBig)).mapTo[Array[Byte]])) {
           case Success(image) =>
             log.info("get completed successfully: " + GetImage + " " + "for " + idBig)
-            getFromFile(image)
+            complete(image)
           case Failure(ex) =>
             log.error(ex, "get failed: " + GetImage + " for " + idBig)
             complete(InternalServerError, "Request could not be completed: \n" + ex.getMessage)
