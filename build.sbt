@@ -13,4 +13,3 @@ libraryDependencies ++= Seq("com.typesafe.akka" %% "akka-actor" % "2.3.13",
   "io.spray" %% "spray-testkit" % "1.3.3" % "test",
   "org.scalatest" % "scalatest_2.11" % "2.2.4" % "test",
   "com.typesafe.akka" %% "akka-testkit" % "2.3.13")
-    

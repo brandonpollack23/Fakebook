@@ -17,18 +17,25 @@ import scala.concurrent.Future
 import spray.httpx.SprayJsonSupport
 import spray.json.AdditionalFormats
 import spray.client.pipelining._
+import UriParser._
+import Uri._
 
+case class createUser(firstname: String, lastname: String)
 
 class F_BaseClient extends Actor with SprayJsonSupport with AdditionalFormats{
 
 def receive = {
 
   //Create operations
-  case createUser => {
+  case createUser(firstname, lastname) => {
+
+    sender ! (Future[HttpResponse] =
+      (IO(Http) ? HttpRequest(PUT, Uri("www.server.com"))).mapTo[HttpResponse])
+
 
   }
 
-  case createPost => {
+  case createPost() => {
 
   }
 
