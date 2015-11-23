@@ -138,7 +138,7 @@ class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
    * @param requesterID who requested
    * @param request contanins requestee
    */
-  def requestFriend(requesterID: BigInt, request: HttpRequest) = {
+  def requestFriend(requesterID: BigInt, request: HttpRequest) {
     try {
       val requestedFriendID = BigInt(request.uri.query.getOrElse(friendRequestString, throw new MalformedAttributeException("no friendrequest parameter!")))
       (users.get(requesterID), users.get(requestedFriendID)) match {
@@ -163,7 +163,7 @@ class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
    * @param acceptorID acceptor
    * @param request requestor and acceptance contained within
    */
-  def handleFriendRequest(acceptorID: BigInt, request: HttpRequest) = {
+  def handleFriendRequest(acceptorID: BigInt, request: HttpRequest) {
     try {
       val requesterID = BigInt(request.uri.query.getOrElse(friendRequestString, throw new MalformedAttributeException("no friend request parameter!")))
       val acceptedString = request.uri.query.getOrElse(acceptFriendString, throw new MalformedAttributeException("no acceptance parameter!"))

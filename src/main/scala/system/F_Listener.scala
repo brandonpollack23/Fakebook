@@ -68,7 +68,7 @@ class F_Listener(backbone: ActorRef) extends HttpServiceActor with ActorLogging 
       } ~
       path("uploadimage") {
         put { req =>
-          genericPut(PutImage(req.request.entity))
+          genericPut(PutImage(req.request))
         }
       }
     } ~

@@ -108,7 +108,7 @@ object F_BackBone {
   case class HandleFriendRequest(acceptorID: BigInt, httpRequest: HttpRequest) extends PostInfo //id acceptor, query requester
 
   sealed trait PutInfo //note: you can use the routing DSL parameter seq to extract parameters!
-  case class PutImage(image: HttpEntity) extends PutInfo//must send the original sender back the JSON object of the created image
+  case class PutImage(httpRequest: HttpRequest) extends PutInfo//must send the original sender back the JSON object of the created image
   case class CreateUser(httpRequest: HttpRequest) extends PutInfo //create user user arguments stored in httprequest and return new user JSON, they need a default profile, album, and unfilled fields for name etc
   case class CreatePage(httpRequest: HttpRequest) extends PutInfo //create page and return JSON
   case class CreateAlbum(httpRequest: HttpRequest) extends PutInfo //create picture and return JSON
