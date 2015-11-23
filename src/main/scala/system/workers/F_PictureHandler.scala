@@ -8,6 +8,9 @@ import akka.actor.{Props, ActorRef, ActorLogging, Actor}
 import graphnodes.{F_Picture, F_Album}
 import spray.http.{Uri, HttpRequest}
 import system.F_BackBone._
+import system.jsonFiles.{F_PictureJSON, F_AlbumJSON}
+
+import scala.concurrent.Future
 
 //TODO implement the logic for each transaction
 class F_PictureHandler(backbone: ActorRef) extends Actor with ActorLogging {
@@ -19,15 +22,22 @@ class F_PictureHandler(backbone: ActorRef) extends Actor with ActorLogging {
 
   def receive = {
     case GetPictureInfo(id) =>
-      pictures.get(id) match {
-        case Some(pic) => sender ! pic //TODO change to JSON
-        case None => sender ! noSuchPictureFailure(id)
+      val replyTo = sender
+
+      Future {
+        pictures.get(id) match {
+          case Some(pic) => replyTo ! F_PictureJSON.getJSON(pic)
+          case None => replyTo ! noSuchPictureFailure(id)
+        }
       }
 
     case GetAlbumInfo(id) =>
-      albums.get(id) match {
-        case Some(alb) => sender ! alb //TODO change to JSON
-        case None => sender ! noSuchAlbumFailure(id)
+      val replyTo = sender
+      Future {
+        albums.get(id) match {
+          case Some(alb) => replyTo ! F_AlbumJSON.getJSON(alb)
+          case None => replyTo ! noSuchAlbumFailure(id)
+        }
       }
 
     case GetImage(id) => //does not send back JSON, sends image

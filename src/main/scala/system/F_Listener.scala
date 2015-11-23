@@ -20,6 +20,8 @@ import scala.util.{Failure, Success}
 
 import language.postfixOps
 
+//TODO edit and delte posts
+
 class F_Listener(backbone: ActorRef) extends HttpServiceActor with ActorLogging {
   import context.dispatcher
 
