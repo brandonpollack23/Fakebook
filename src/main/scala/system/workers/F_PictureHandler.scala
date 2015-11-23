@@ -1,11 +1,12 @@
 package system.workers
 
 import java.io.File
+import java.util.{Date, MissingFormatArgumentException}
 
 import akka.actor
 import akka.actor.{Props, ActorRef, ActorLogging, Actor}
 import graphnodes.{F_Picture, F_Album}
-import spray.http.HttpRequest
+import spray.http.{Uri, HttpRequest}
 import system.F_BackBone._
 
 //TODO implement the logic for each transaction
@@ -14,7 +15,7 @@ class F_PictureHandler(backbone: ActorRef) extends Actor with ActorLogging {
 
   val albums = collection.mutable.Map[BigInt, F_Album]()
   val pictures = collection.mutable.Map[BigInt, F_Picture]()
-  val pictureData = collection.mutable.Map[BigInt, File]()
+  val pictureData = collection.mutable.Map[BigInt, Array[Byte]]()
 
   def receive = {
     case GetPictureInfo(id) =>
@@ -54,28 +55,23 @@ class F_PictureHandler(backbone: ActorRef) extends Actor with ActorLogging {
       deleteAlbum(id)
   }
 
-  def updatePicture(id: BigInt, request: HttpRequest) = updateData(id, request, pictures)
+  def updatePicture(id: BigInt, request: HttpRequest) = ???
 
-  def updateAlbum(id: BigInt, request: HttpRequest) = updateData(id, request, albums)
+  def updateAlbum(id: BigInt, request: HttpRequest) = ???
 
-  def createImage(request: HttpRequest) = createData(request, pictures)
+  def createImage(request: HttpRequest) = ???
 
-  def createAlbum(request: HttpRequest) = createData(request, albums)
+  def createAlbum(request: HttpRequest) = ???
 
-  def deletePicture(id: BigInt) = deleteData(id, pictures)
+  def deletePicture(id: BigInt) = ???
 
-  def deleteAlbum(id: BigInt) = deleteData(id, albums)
+  def deleteAlbum(id: BigInt) = ???
 
-  def updateData(id: BigInt, request: HttpRequest, datas: collection.mutable.Map[BigInt, _]) {
-    ???
-  }
-
-  def createData(request: HttpRequest, datas: collection.mutable.Map[BigInt, _]) = {
-    ???
-  }
-
-  def deleteData(id: BigInt, datas: collection.mutable.Map[BigInt, _]) = {
-    ???
+  def placeImage(request: HttpRequest) = { //places image in database and returns the id
+    val imageID = getUniqueRandomBigInt(pictureData)
+    //SECURITY CHANGE make sure it is actually an image (not now)
+    pictureData.put(imageID, request.entity.data.toByteArray)
+    imageID
   }
 }
 
