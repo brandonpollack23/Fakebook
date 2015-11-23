@@ -11,4 +11,6 @@ object F_Album {
   val nameString = "name"
   val descriptionString = "description"
   val ownerString = "owner"
+
+  val changableParameters = List(nameString, descriptionString)
 }
