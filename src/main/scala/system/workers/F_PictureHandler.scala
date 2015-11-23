@@ -13,6 +13,7 @@ import scala.concurrent.Future
 
 class F_PictureHandler(backbone: ActorRef) extends Actor with ActorLogging {
   import F_PictureHandler._
+  import context.dispatcher
 
   val albums = collection.mutable.Map[BigInt, F_Album]()
   val pictures = collection.mutable.Map[BigInt, F_Picture]()

@@ -4,7 +4,7 @@ import java.security.SecureRandom
 import java.text.SimpleDateFormat
 
 import akka.actor.{ActorRef, Props, Actor, ActorLogging}
-import spray.http.{HttpRequest, HttpEntity}
+import spray.http.HttpRequest
 
 import scala.collection.mutable.Map
 

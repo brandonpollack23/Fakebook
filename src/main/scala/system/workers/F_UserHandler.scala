@@ -20,6 +20,7 @@ import scala.xml.MalformedAttributeException
 
 class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
   import F_UserHandler._
+  import context.dispatcher
 
   implicit val timeout = Timeout(5 seconds)
 
