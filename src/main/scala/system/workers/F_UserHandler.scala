@@ -11,7 +11,6 @@ import graphnodes.F_User._
 import spray.http.{HttpRequest, Uri}
 import system.F_BackBone._
 
-import scala.annotation.tailrec
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
@@ -45,7 +44,7 @@ class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
 
     case RequestFriend(requesterID, request) =>
       try {
-        val requestedFriendID = BigInt(request.uri.query.get(friendRequestString).getOrElse(throw new MalformedAttributeException("no friendrequest parameter!")))
+        val requestedFriendID = BigInt(request.uri.query.getOrElse(friendRequestString, throw new MalformedAttributeException("no friendrequest parameter!")))
         (users.get(requesterID), users.get(requestedFriendID)) match {
           case (Some(requester), Some(requested)) =>
             users.put(requesterID, requested.copy(friendRequests = requesterID :: requested.friendRequests))
@@ -64,8 +63,8 @@ class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
 
     case HandleFriendRequest(acceptorID, request) =>
       try {
-        val requesterID = BigInt(request.uri.query.get(friendRequestString).getOrElse(throw new MalformedAttributeException("no friend request parameter!")))
-        val acceptedString = request.uri.query.get(acceptFriendString).getOrElse(throw new MalformedAttributeException("no acceptance parameter!"))
+        val requesterID = BigInt(request.uri.query.getOrElse(friendRequestString, throw new MalformedAttributeException("no friend request parameter!")))
+        val acceptedString = request.uri.query.getOrElse(acceptFriendString, throw new MalformedAttributeException("no acceptance parameter!"))
         val accepted = if(acceptedString == "true") true else false
         (users.get(acceptorID), users.get(requesterID)) match {
           case (Some(acceptor), Some(requester)) =>
@@ -159,7 +158,7 @@ class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
     }
 
     try{
-      val user = users.get(id).getOrElse(throw noSuchUserException(List(id)))
+      val user = users.getOrElse(id, throw noSuchUserException(List(id)))
 
       val params = request.uri.query
 
