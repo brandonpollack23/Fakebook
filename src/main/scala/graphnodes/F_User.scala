@@ -17,4 +17,7 @@ object F_User {
   val dobString = "dob"
 
   val changableParameters = List(lastNameString, firstNameString, bioString, ageString, dobString)
+
+  val friendRequestString = "friendrequest"
+  val acceptFriendString = "acceptfriend"
 }

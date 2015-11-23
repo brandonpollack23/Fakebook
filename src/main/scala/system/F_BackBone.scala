@@ -51,7 +51,7 @@ class F_BackBone(f_pictureHandler: ActorRef, f_userHandler: ActorRef, f_pageProf
     case RequestFriend(id, req) =>
       f_userHandler forward RequestFriend(id, req)
 
-    case AcceptFriend(id, req) =>
+    case HandleFriendRequest(id, req) =>
       f_userHandler forward RequestFriend(id, req)
 
     //PUT functions
@@ -104,8 +104,8 @@ object F_BackBone {
   case class UpdateProfileData(id: BigInt, httpRequest: HttpRequest) extends PostInfo
   case class UpdateImageData(id: BigInt, httpRequest: HttpRequest) extends PostInfo
   case class UpdateAlbumData(id: BigInt, httpRequest: HttpRequest) extends PostInfo
-  case class RequestFriend(id: BigInt, httpRequest: HttpRequest) extends PostInfo
-  case class AcceptFriend(id: BigInt, httpRequest: HttpRequest) extends PostInfo //restful path is the user accepting, parameter is accepting friend
+  case class RequestFriend(requesterID: BigInt, httpRequest: HttpRequest) extends PostInfo //id from, query to
+  case class HandleFriendRequest(acceptorID: BigInt, httpRequest: HttpRequest) extends PostInfo //id acceptor, query requester
 
   sealed trait PutInfo //note: you can use the routing DSL parameter seq to extract parameters!
   case class PutImage(image: HttpEntity) extends PutInfo//must send the original sender back the JSON object of the created image

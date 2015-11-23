@@ -47,7 +47,7 @@ class F_Listener(backbone: ActorRef) extends HttpServiceActor with ActorLogging 
         pathPrefix("request") {
           genericPost(req, RequestFriend)
         } ~
-        genericPost(req, AcceptFriend)
+        genericPost(req, HandleFriendRequest)
       } ~
       delete {
         genericDelete(req, DeleteUser)
