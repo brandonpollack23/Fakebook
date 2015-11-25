@@ -4,7 +4,7 @@ import java.util.{Date, MissingFormatArgumentException}
 
 import akka.actor
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
-import akka.pattern.ask
+import akka.pattern.{ask, pipe}
 import akka.util.Timeout
 import graphnodes.F_User
 import graphnodes.F_User._
@@ -33,11 +33,9 @@ class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
     case GetUserInfo(id) =>
       val replyTo = sender
 
-      Future {
-        users.get(id) match {
-          case Some(user) => replyTo ! F_UserJSON.getJSON(user)
-          case None => replyTo ! noSuchUserFailure(id)
-        }
+      users.get(id) match {
+        case Some(user) => Future(F_UserJSON.getJSON(user)) pipeTo replyTo
+        case None => Future(noSuchUserFailure(id)) pipeTo replyTo
       }
 
     case UpdateUserData(id, request) =>
@@ -89,9 +87,7 @@ class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
       val newUser = (F_User.apply _).tupled(getAllComponents(id, params))
       users.put(id, newUser)
       val replyTo = sender
-      Future {
-        replyTo ! F_UserJSON.getJSON(newUser)
-      }
+      Future(F_UserJSON.getJSON(newUser)) pipeTo replyTo
     } catch {
       case ex: Exception =>
         sender ! actor.Status.Failure(ex)
@@ -137,9 +133,7 @@ class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
 
       val replyTo = sender
 
-      Future{
-        replyTo ! F_UserJSON.getJSON(updatedUser)
-      }
+      Future(F_UserJSON.getJSON(updatedUser)) pipeTo replyTo
     } catch {
       case ex: Exception =>
         sender ! actor.Status.Failure(ex)
