@@ -229,8 +229,8 @@ class F_PictureHandler(backbone: ActorRef) extends Actor with ActorLogging {
 object F_PictureHandler {
   def props(backbone: ActorRef) = Props(new F_PictureHandler(backbone))
 
-  val defaultPictureID = 0
-  val defaultPictureDataID = 0
+  val defaultPictureID = BigInt(0)
+  val defaultPictureDataID = BigInt(0)
 
   /**
    * exception to throw or put in messages when no such picture

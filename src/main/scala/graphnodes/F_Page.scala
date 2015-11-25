@@ -9,3 +9,11 @@ case class F_Page(name: String, description: String,
                    albumIDs: List[BigInt],
                    pictureID: BigInt,
                    ownerID: BigInt)
+
+object F_Page {
+  val nameString = "name"
+  val descriptionString = "description"
+  val ownerString = "owner"
+
+  val changeableParameters = List(nameString, descriptionString, ownerString)
+}

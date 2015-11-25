@@ -1,6 +1,6 @@
 package system.workers
 
-import java.util.Date
+import java.util.{MissingFormatArgumentException, Date}
 
 import akka.actor
 import akka.actor.{Props, ActorRef, ActorLogging, Actor}
@@ -72,16 +72,63 @@ class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
   def createUserProfile(userID: BigInt) = {
     val profileID = getUniqueRandomBigInt(profiles)
     val defaultAlbumID = (backbone ? CreateDefaultAlbum(userID)).mapTo[BigInt]
-    val defaultProfile = F_UserProfile(List[BigInt](), new Date, List[BigInt](Await.result(defaultAlbumID, 5 seconds)), F_BackBone.defaultPictureID, "insert bio here", profileID)
+    val defaultProfile = F_UserProfile(List[BigInt](), new Date, List[BigInt](Await.result(defaultAlbumID, 5 seconds)), defaultPictureID, "insert bio here", profileID)
     profiles.put(profileID, defaultProfile)
     profileID
   }
 
   def createPage(request: HttpRequest) = {
+    val pageID = getUniqueRandomBigInt(pages)
+    val params = request.uri.query
+    val defaultAlbumID = (backbone ? CreateDefaultAlbum(pageID)).mapTo[BigInt]
 
+    def getAllComponents = {
+      def extractComponent(key: String) = {
+        params.find(_._1 == key).map(_._2) match {
+          case Some(x) => x
+          case None => throw new MissingFormatArgumentException("there is no entry for " + key)
+        }
+      }
+
+      (extractComponent(F_Page.nameString), extractComponent(F_Page.descriptionString), new Date, List[BigInt](), List[BigInt](), List[BigInt](Await.result(defaultAlbumID, 5 seconds)), defaultPictureID, BigInt(extractComponent(F_Page.ownerString), 16))
+    }
+
+    try {
+      val newPage = (F_Page.apply _).tupled(getAllComponents)
+      pages.put(pageID, newPage)
+      val replyTo = sender
+      Future(F_PageJSON.getJSON(newPage)) pipeTo replyTo
+    } catch {
+      case ex: Exception =>
+        sender ! actor.Status.Failure(ex)
+    }
   }
 
-  def createPost(request: HttpRequest) = ???
+  def createPost(request: HttpRequest) = {
+    val postID = getUniqueRandomBigInt(posts)
+    val params = request.uri.query
+
+    def getAllComponents = {
+      def extractComponent(key: String) = {
+        params.find(_._1 == key).map(_._2) match {
+          case Some(x) => x
+          case None => throw new MissingFormatArgumentException("there is no entry for " + key)
+        }
+      }
+
+      (extractComponent(F_Post.contentsString), BigInt(extractComponent(F_Post.creatorString), 16), extractComponent(F_Post.locationTypeString), BigInt(extractComponent(F_Post.locationString), 16), new Date, postID)
+    }
+
+    try {
+      val newPost = (F_Post.apply _).tupled(getAllComponents)
+      val replyTo = sender
+      posts.put(postID, newPost)
+      Future(F_PostJSON.getJSON(newPost)) pipeTo replyTo
+    } catch {
+      case ex: Exception =>
+        sender ! actor.Status.Failure(ex)
+    }
+  }
 
   def updatePageData(id: BigInt, request: HttpRequest) = ???
 
