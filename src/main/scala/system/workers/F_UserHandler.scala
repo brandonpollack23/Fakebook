@@ -35,7 +35,7 @@ class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
 
       users.get(id) match {
         case Some(user) => Future(F_UserJSON.getJSON(user)) pipeTo replyTo
-        case None => Future(noSuchUserFailure(id)) pipeTo replyTo
+        case None => replyTo ! noSuchUserFailure(id)
       }
 
     case UpdateUserData(id, request) =>
@@ -43,7 +43,13 @@ class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
 
     case DeleteUser(id) =>
       users.remove(id) match {
-        case Some(user) => sender ! "User Deleted!"
+        case Some(user) =>
+          (backbone ? DeleteUserProfile(user.profileID)) onComplete {
+            case Some(fail: actor.Status.Failure) =>
+              sender ! fail
+            case Some(_) =>
+              sender ! "User Deleted!"
+          }
         case None => sender ! noSuchUserFailure(id)
       }
 

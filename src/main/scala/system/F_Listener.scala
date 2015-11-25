@@ -41,6 +41,7 @@ class F_Listener(backbone: ActorRef) extends HttpServiceActor with ActorLogging 
   }
 
   //NOTE: All IDs should be sent in HEX
+  //TODO add routes to PUT, POST to edit, and DELETE a post, there are handled in their own RESTful interface directory, queries contain if it is a profile or a page and other info, such as poster
   //TODO routes broke when i had intermediate lambdas for some reason, but i needed the unmatched path, have to fix it
   val route: Route = { request =>
     pathPrefix("user") {

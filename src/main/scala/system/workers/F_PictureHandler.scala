@@ -26,8 +26,7 @@ class F_PictureHandler(backbone: ActorRef) extends Actor with ActorLogging {
 
       pictures.get(id) match {
         case Some(pic) => Future(F_PictureJSON.getJSON(pic)) pipeTo replyTo
-        case None => Future(noSuchPictureFailure(id)) pipeTo replyTo
-
+        case None => replyTo ! noSuchPictureFailure(id)
       }
 
     case GetAlbumInfo(id) =>
@@ -35,7 +34,7 @@ class F_PictureHandler(backbone: ActorRef) extends Actor with ActorLogging {
 
       albums.get(id) match {
         case Some(alb) => Future(F_AlbumJSON.getJSON(alb)) pipeTo replyTo
-        case None => Future(noSuchAlbumFailure(id)) pipeTo replyTo
+        case None => replyTo ! noSuchAlbumFailure(id)
       }
 
     case GetImage(id) => //does not send back JSON, sends image

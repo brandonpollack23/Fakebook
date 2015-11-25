@@ -104,6 +104,7 @@ object F_BackBone {
   case class UpdateProfileData(id: BigInt, httpRequest: HttpRequest) extends PostInfo
   case class UpdateImageData(id: BigInt, httpRequest: HttpRequest) extends PostInfo
   case class UpdateAlbumData(id: BigInt, httpRequest: HttpRequest) extends PostInfo
+  case class UpdatePostData(id: BigInt, httpRequest: HttpRequest) extends PostInfo
   case class RequestFriend(requesterID: BigInt, httpRequest: HttpRequest) extends PostInfo //id from, query to
   case class HandleFriendRequest(acceptorID: BigInt, httpRequest: HttpRequest) extends PostInfo //id acceptor, query requester
 
@@ -112,16 +113,19 @@ object F_BackBone {
   case class CreateUser(httpRequest: HttpRequest) extends PutInfo //create user user arguments stored in httprequest and return new user JSON, they need a default profile, album, and unfilled fields for name etc
   case class CreatePage(httpRequest: HttpRequest) extends PutInfo //create page and return JSON
   case class CreateAlbum(httpRequest: HttpRequest) extends PutInfo //create picture and return JSON
+  case class CreatePost(httpRequest: HttpRequest) extends PutInfo
 
   sealed trait DeleteInfo
   case class DeleteUser(id: BigInt) extends DeleteInfo
   case class DeletePage(id: BigInt) extends DeleteInfo
   case class DeletePicture(id: BigInt) extends DeleteInfo
   case class DeleteAlbum(id: BigInt) extends DeleteInfo //will not delete default album, deletes all pictures in album
+  case class DeletePost(id: BigInt) extends DeleteInfo
 
   //System messages and functions
 
   case class CreateUserProfile(userID: BigInt) //replies with user profile id
+  case class DeleteUserProfile(profileID: BigInt)
 
   val dateFormatter = new SimpleDateFormat("'M'MM'D'dd'Y'yyyy")
 
