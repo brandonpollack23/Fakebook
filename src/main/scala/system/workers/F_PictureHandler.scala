@@ -4,6 +4,7 @@ import java.util.{Date, MissingFormatArgumentException}
 
 import akka.actor
 import akka.actor.{Props, ActorRef, ActorLogging, Actor}
+import akka.pattern.pipe
 import graphnodes.{F_Picture, F_Album}
 import spray.http.{Uri, HttpRequest}
 import system.F_BackBone._
@@ -23,20 +24,18 @@ class F_PictureHandler(backbone: ActorRef) extends Actor with ActorLogging {
     case GetPictureInfo(id) =>
       val replyTo = sender
 
-      Future {
-        pictures.get(id) match {
-          case Some(pic) => replyTo ! F_PictureJSON.getJSON(pic)
-          case None => replyTo ! noSuchPictureFailure(id)
-        }
+      pictures.get(id) match {
+        case Some(pic) => Future(F_PictureJSON.getJSON(pic)) pipeTo replyTo
+        case None => Future(noSuchPictureFailure(id)) pipeTo replyTo
+
       }
 
     case GetAlbumInfo(id) =>
       val replyTo = sender
-      Future {
-        albums.get(id) match {
-          case Some(alb) => replyTo ! F_AlbumJSON.getJSON(alb)
-          case None => replyTo ! noSuchAlbumFailure(id)
-        }
+
+      albums.get(id) match {
+        case Some(alb) => Future(F_AlbumJSON.getJSON(alb)) pipeTo replyTo
+        case None => Future(noSuchAlbumFailure(id)) pipeTo replyTo
       }
 
     case GetImage(id) => //does not send back JSON, sends image
@@ -94,9 +93,7 @@ class F_PictureHandler(backbone: ActorRef) extends Actor with ActorLogging {
 
       val replyTo = sender
 
-      Future{
-        replyTo ! F_PictureJSON.getJSON(updatedPicture)
-      }
+      Future(F_PictureJSON.getJSON(updatedPicture)) pipeTo replyTo
     } catch {
       case ex: Exception =>
         sender ! actor.Status.Failure(ex)
@@ -133,9 +130,7 @@ class F_PictureHandler(backbone: ActorRef) extends Actor with ActorLogging {
 
       val replyTo = sender
 
-      Future{
-        replyTo ! F_AlbumJSON.getJSON(updatedAlbum)
-      }
+      Future(F_AlbumJSON.getJSON(updatedAlbum)) pipeTo replyTo
     } catch {
       case ex: Exception =>
         sender ! actor.Status.Failure(ex)
@@ -162,9 +157,7 @@ class F_PictureHandler(backbone: ActorRef) extends Actor with ActorLogging {
       val newPicture = (F_Picture.apply _).tupled(getAllComponents)
       pictures.put(pictureID, newPicture)
       val replyTo = sender
-      Future {
-        replyTo ! F_PictureJSON.getJSON(newPicture)
-      }
+      Future(F_PictureJSON.getJSON(newPicture)) pipeTo replyTo
     } catch {
       case ex: Exception =>
         sender ! actor.Status.Failure(ex)
@@ -183,16 +176,14 @@ class F_PictureHandler(backbone: ActorRef) extends Actor with ActorLogging {
         }
       }
 
-      (extractComponent(F_Album.nameString), extractComponent(F_Album.descriptionString), new Date, BigInt(extractComponent(F_Album.ownerString), 16), List[BigInt]())
+      (extractComponent(F_Album.nameString), extractComponent(F_Album.descriptionString), new Date, BigInt(extractComponent(F_Album.ownerString), 16), albumID, List[BigInt]())
     }
 
     try {
       val newAlbum = (F_Album.apply _).tupled(getAllComponents)
       albums.put(albumID, newAlbum)
       val replyTo = sender
-      Future {
-        replyTo ! F_AlbumJSON.getJSON(newAlbum)
-      }
+      Future(F_AlbumJSON.getJSON(newAlbum)) pipeTo replyTo
     } catch {
       case ex: Exception =>
         sender ! actor.Status.Failure(ex)
