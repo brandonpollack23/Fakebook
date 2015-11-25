@@ -1,14 +1,20 @@
 package system.workers
 
+import java.util.Date
+
 import akka.actor
 import akka.actor.{Props, ActorRef, ActorLogging, Actor}
-import akka.pattern.pipe
+import akka.pattern.{pipe, ask}
 import graphnodes.{F_Post, F_UserProfile, F_Page}
 import spray.http.HttpRequest
+import system.F_BackBone
 import system.F_BackBone._
 import system.jsonFiles.{F_PageJSON, F_ProfileJSON}
 
-import scala.concurrent.Future
+import scala.concurrent.{Await, Future}
+import scala.concurrent.duration._
+
+import language.postfixOps
 
 class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
   import F_PageProfileHandler._
@@ -64,10 +70,16 @@ class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
   }
 
   def createUserProfile(userID: BigInt) = {
-    ???
+    val profileID = getUniqueRandomBigInt(profiles)
+    val defaultAlbumID = (backbone ? CreateDefaultAlbum(userID)).mapTo[BigInt]
+    val defaultProfile = F_UserProfile(List[BigInt](), new Date, List[BigInt](Await.result(defaultAlbumID, 5 seconds)), F_BackBone.defaultPictureID, "insert bio here", profileID)
+    profiles.put(profileID, defaultProfile)
+    profileID
   }
 
-  def createPage(request: HttpRequest) = ???
+  def createPage(request: HttpRequest) = {
+
+  }
 
   def createPost(request: HttpRequest) = ???
 

@@ -1,5 +1,6 @@
 package system.workers
 
+import java.io.{FileInputStream, ByteArrayInputStream, File}
 import java.util.{Date, MissingFormatArgumentException}
 
 import akka.actor
@@ -20,6 +21,15 @@ class F_PictureHandler(backbone: ActorRef) extends Actor with ActorLogging {
   val pictures = collection.mutable.Map[BigInt, F_Picture]()
   val pictureData = collection.mutable.Map[BigInt, Array[Byte]]()
 
+  val defaultPictureFile = new File("pictures/defaultpic.jpg")
+
+  val defaultPictureArray = new Array[Byte](defaultPictureFile.length().asInstanceOf[Int])
+
+  (new FileInputStream(defaultPictureFile)).read(defaultPictureArray)
+
+  pictureData.put(defaultPictureDataID, defaultPictureArray)
+
+  //TODO store all pictures as files and read them back as files to send
   def receive = {
     case GetPictureInfo(id) =>
       val replyTo = sender
@@ -48,6 +58,11 @@ class F_PictureHandler(backbone: ActorRef) extends Actor with ActorLogging {
 
     case CreateAlbum(request) =>
       createAlbum(request)
+
+    case CreateDefaultAlbum(ownerID) =>
+      val id = getUniqueRandomBigInt(albums)
+      albums.put(id, F_Album("Default Album", "default album generated for you by Fakebook", new Date, ownerID, id, List[BigInt]()))
+      sender ! id
 
     case UpdateImageData(id, request) =>
       updatePicture(id, request)
@@ -213,6 +228,9 @@ class F_PictureHandler(backbone: ActorRef) extends Actor with ActorLogging {
 
 object F_PictureHandler {
   def props(backbone: ActorRef) = Props(new F_PictureHandler(backbone))
+
+  val defaultPictureID = 0
+  val defaultPictureDataID = 0
 
   /**
    * exception to throw or put in messages when no such picture

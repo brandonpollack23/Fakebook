@@ -4,7 +4,9 @@ import java.security.SecureRandom
 import java.text.SimpleDateFormat
 
 import akka.actor.{ActorRef, Props, Actor, ActorLogging}
-import spray.http.HttpRequest
+import graphnodes.F_Picture
+import spray.http.{Uri, HttpRequest}
+import system.workers.F_PictureHandler
 
 import scala.collection.mutable.Map
 
@@ -126,10 +128,13 @@ object F_BackBone {
 
   case class CreateUserProfile(userID: BigInt) //replies with user profile id
   case class DeleteUserProfile(profileID: BigInt)
+  case class CreateDefaultAlbum(ownerID: BigInt)
 
   val dateFormatter = new SimpleDateFormat("'M'MM'D'dd'Y'yyyy")
 
   implicit val randomIDGenerator = new SecureRandom()
+
+  val defaultPictureID = F_PictureHandler.defaultPictureID
 
   /**
    * Generatess a unique secure random ID for the map
