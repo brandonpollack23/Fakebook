@@ -3,8 +3,9 @@ package system.jsonFiles
 import java.util.Date
 
 import spray.json._
+import DefaultJsonProtocol._
 import graphnodes._
-//import com.oracle.javafx.jmx.json.JSONDocument
+import MyJsonProtocol._
 
 object F_AlbumJSON extends DefaultJsonProtocol
 {

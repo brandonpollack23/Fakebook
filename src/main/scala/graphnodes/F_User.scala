@@ -7,7 +7,7 @@ case class F_User(firstName: String, lastName: String, biography: String, age: I
                    friends: List[BigInt],
                    friendRequests: List[BigInt],
                    profileID: BigInt,
-                   ID: BigInt)
+                   userID: BigInt)
 
 object F_User {
   val lastNameString = "lastname"

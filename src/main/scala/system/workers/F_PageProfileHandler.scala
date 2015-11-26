@@ -9,7 +9,7 @@ import graphnodes.{F_Post, F_UserProfile, F_Page}
 import spray.http.HttpRequest
 import system.F_BackBone
 import system.F_BackBone._
-import system.jsonFiles.{F_PageJSON, F_ProfileJSON}
+import system.jsonFiles.{F_PostJSON, F_PageJSON, F_ProfileJSON}
 
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._

@@ -7,19 +7,24 @@ import akka.pattern.ask
 import akka.actor.Actor
 import spray.can.Http
 import akka.io.IO
-import spray.json._
+//import spray.json._
 import akka.actor._
-import DefaultJsonProtocol._
-import java.util._
-import scala.concurrent.Future
+import scala.concurrent._
+import ExecutionContext.Implicits.global
+//import DefaultJsonProtocol._
+//import java.util._
 import spray.httpx.SprayJsonSupport
 import spray.json.AdditionalFormats
 import graphnodes._
+//import scala.util.{Success, Failure}
 
 
 
-class F_BaseClient extends Actor with SprayJsonSupport with AdditionalFormats{
+class F_BaseClient extends Actor with SprayJsonSupport with AdditionalFormats with ActorLogging{
 
+  log.debug("Starting client side logs\n")
+
+  case class createUser()
   case class createPost(id : BigInt)
   case class createPage(id : BigInt)
   case class createAlbum(id : BigInt)
@@ -33,7 +38,6 @@ class F_BaseClient extends Actor with SprayJsonSupport with AdditionalFormats{
   case class getImageData(id : BigInt)
   case class getAlbumData(id : BigInt)
   case class getPost(id : BigInt)
-  case class getAlbumData(id : BigInt)
   case class getPageData(id :BigInt)
   case class deleteUser(id :BigInt)
   case class deleteImage(id :BigInt)
@@ -43,13 +47,24 @@ class F_BaseClient extends Actor with SprayJsonSupport with AdditionalFormats{
   case class sendFriendReq(id1 : BigInt, id2 :BigInt)
   case class acceptFriendReq(id1 :BigInt, id2 :BigInt)
 
+  case class userCreated(res: Future[HttpResponse])
+
 def receive = {
 
   //Create operations
   case createUser =>
     val uri = Uri("https://www.fakebook.com/newuser?") withQuery(F_User.lastNameString -> "",F_User.firstNameString -> "", F_User.bioString -> "", F_User.dobString -> "", F_User.ageString -> "")
-    sender !  (IO(Http) ? HttpRequest(PUT, uri)).mapTo[HttpResponse]
+    val response : Future[HttpResponse] = (IO(Http) ? HttpRequest(PUT, uri)).mapTo[HttpResponse]
+    response onComplete {
+      case success =>
+        log.debug("create profile success\n")
+        sender ! response
+      case failure =>
+        log.error("failure at create user profile\n")
+    }
 
+
+/*
   case createPost(id) =>
     val uri = Uri("https://www.fakebook.com/newpost?") withQuery(F_Post.creator -> id.toString(16),F_Post.contents -> "", F_Post.locationType -> "", F_Post.dateOfCreation -> "")
     sender !  (IO(Http) ? HttpRequest(PUT, uri)).mapTo[HttpResponse]
@@ -137,7 +152,7 @@ def receive = {
   case acceptFriendReq(id1, id2) =>
     //do we need this before authentication part??
 
-
+*/
 
 
 }

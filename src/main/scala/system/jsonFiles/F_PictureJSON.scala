@@ -2,9 +2,10 @@ package system.jsonFiles
 
 import spray.json._
 import graphnodes._
-//import com.oracle.javafx.jmx.json.JSONDocument
+import MyJsonProtocol._
 
-object F_PictureJSON extends DefaultJsonProtocol
+
+object F_PictureJSON //extends DefaultJsonProtocol
 {
 
   def getJSON(picture: F_Picture) : JsValue ={

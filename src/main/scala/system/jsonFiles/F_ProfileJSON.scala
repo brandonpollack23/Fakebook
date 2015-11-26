@@ -2,7 +2,7 @@ package system.jsonFiles
 
 import spray.json._
 import graphnodes._
-//import com.oracle.javafx.jmx.json.JSONDocument
+import MyJsonProtocol._
 
 object F_ProfileJSON extends DefaultJsonProtocol
 {
