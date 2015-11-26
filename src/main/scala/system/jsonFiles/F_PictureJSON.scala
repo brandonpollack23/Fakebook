@@ -4,7 +4,6 @@ import spray.json._
 import graphnodes._
 import MyJsonProtocol._
 
-
 object F_PictureJSON //extends DefaultJsonProtocol
 {
 
