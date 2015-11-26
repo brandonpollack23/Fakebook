@@ -57,6 +57,9 @@ class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
 
     case HandleFriendRequest(acceptorID, request) =>
       handleFriendRequest(acceptorID, request)
+
+    case RemoveFriend(removerID, request) =>
+      removeFriend(removerID, request)
   }
 
   /**
@@ -177,7 +180,7 @@ class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
    */
   def handleFriendRequest(acceptorID: BigInt, request: HttpRequest) {
     try {
-      val requesterID = BigInt(request.uri.query.getOrElse(friendRequestString, throw new MalformedAttributeException("no friend request parameter!")))
+      val requesterID = BigInt(request.uri.query.getOrElse(friendRequestString, throw new MalformedAttributeException("no friend request parameter!")), 16)
       val acceptedString = request.uri.query.getOrElse(acceptFriendString, throw new MalformedAttributeException("no acceptance parameter!"))
       val accepted = if (acceptedString == "true") true else false
       (users.get(acceptorID), users.get(requesterID)) match {
@@ -199,6 +202,26 @@ class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
           sender ! noSuchUserFailure(acceptorID)
         case (None, None) =>
           sender ! noSuchUserFailure(acceptorID, requesterID)
+      }
+    } catch {
+      case ex: Exception =>
+        sender ! actor.Status.Failure(ex)
+    }
+  }
+
+  def removeFriend(removerID: BigInt, request: HttpRequest) = {
+    try {
+      val removedID = BigInt(request.uri.query.getOrElse(friendRemoveString, throw new MalformedAttributeException("no friend remove parameter!")), 16)
+      (users.get(removerID), users.get(removedID)) match {
+        case (Some(remover), Some(removed)) =>
+          users.put(removerID, remover.copy(friends = remover.friends.filter(_ != removedID)))
+          users.put(removedID, removed.copy(friends = removed.friends.filter(_ != removerID)))
+        case (Some(remover), None) =>
+          sender ! noSuchUserFailure(removedID)
+        case (None, Some(removed)) =>
+          sender ! noSuchUserFailure(removerID)
+        case (None, None) =>
+          sender ! noSuchUserFailure(removerID, removedID)
       }
     } catch {
       case ex: Exception =>

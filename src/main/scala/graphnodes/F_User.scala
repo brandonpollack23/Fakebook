@@ -20,4 +20,5 @@ object F_User {
 
   val friendRequestString = "friendrequest"
   val acceptFriendString = "acceptfriend"
+  val friendRemoveString = "remove"
 }

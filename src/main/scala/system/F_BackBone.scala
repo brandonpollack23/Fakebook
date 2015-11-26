@@ -122,6 +122,7 @@ object F_BackBone {
   case class UpdatePostData(id: BigInt, httpRequest: HttpRequest) extends PostInfo
   case class RequestFriend(requesterID: BigInt, httpRequest: HttpRequest) extends PostInfo //id from, query to
   case class HandleFriendRequest(acceptorID: BigInt, httpRequest: HttpRequest) extends PostInfo //id acceptor, query requester
+  case class RemoveFriend(userID: BigInt, httpRequest: HttpRequest) extends PostInfo //restful id is remover, request is removed
 
   sealed trait PutInfo //note: you can use the routing DSL parameter seq to extract parameters!
   case class PutImage(httpRequest: HttpRequest) extends PutInfo//must send the original sender back the JSON object of the created image

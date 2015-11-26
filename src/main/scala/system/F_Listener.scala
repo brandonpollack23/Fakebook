@@ -37,8 +37,6 @@ class F_Listener(backbone: ActorRef) extends HttpServiceActor with ActorLogging 
   }
 
   //NOTE: All IDs should be sent in HEX
-  //TODO be able to remove a friend (and remove you from them)
-  //TODO add routes to PUT, POST to edit, and DELETE a post, there are handled in their own RESTful interface directory, queries contain if it is a profile or a page and other info, such as poster
   //TODO routes broke when i had intermediate lambdas for some reason, but i needed the unmatched path, have to fix it
   val route: Route = { request =>
     pathPrefix("user") {
@@ -52,9 +50,12 @@ class F_Listener(backbone: ActorRef) extends HttpServiceActor with ActorLogging 
         genericGet(req, GetUserInfo)
       } ~
       post { req =>
-        pathPrefix("request") {
-          genericPost(req, RequestFriend)
+        pathPrefix("request") { req2 =>
+          genericPost(req2, RequestFriend)
         } ~
+        pathPrefix("remove") { req2 =>
+          genericPost(req2, RemoveFriend)
+        }
         genericPost(req, HandleFriendRequest)
       } ~
       delete { req =>
