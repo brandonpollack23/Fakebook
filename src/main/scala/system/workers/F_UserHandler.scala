@@ -18,9 +18,6 @@ import scala.concurrent.duration._
 import scala.language.postfixOps
 import scala.xml.MalformedAttributeException
 
-//TODO handle removing from friends friends lists when user deleted
-//TODO add somethign to be able to remove friends
-
 class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
   import F_UserHandler._
   import context.dispatcher
@@ -45,11 +42,20 @@ class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
       updateUserData(id, request)
 
     case DeleteUser(id) =>
-      users.remove(id) match {
-        case Some(user) =>
-          backbone ! DeleteUserProfile(user.profileID)
-          sender ! "User Deleted!"
-        case None => sender ! noSuchUserFailure(id)
+      try {
+        users.remove(id) match {
+          case Some(user) =>
+            user.friends.foreach { x =>
+              val friend = users.getOrElse(x, throw noSuchUserException(List(x)))
+              users.put(x, friend.copy(friends = friend.friends.filter(_ != user.userID)))
+            }
+            backbone ! DeleteUserProfile(user.profileID)
+            sender ! "User Deleted!"
+          case None => sender ! noSuchUserFailure(id)
+        }
+      } catch {
+        case ex: Exception =>
+          sender ! actor.Status.Failure(ex)
       }
 
     case RequestFriend(requesterID, request) =>

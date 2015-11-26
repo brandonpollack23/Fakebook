@@ -1,20 +1,20 @@
 package system.workers
 
-import java.io.{FileInputStream, ByteArrayInputStream, File}
+import java.io.{FileOutputStream, FileInputStream, File}
 import java.util.{Date, MissingFormatArgumentException}
 
 import akka.actor
 import akka.actor.{Props, ActorRef, ActorLogging, Actor}
-import akka.pattern.pipe
-import graphnodes.{F_Picture, F_Album}
+import akka.pattern.{pipe, ask}
+import graphnodes.{F_UserProfile, F_User, F_Picture, F_Album}
 import spray.http.{Uri, HttpRequest}
 import system.F_BackBone._
 import system.jsonFiles.{F_PictureJSON, F_AlbumJSON}
 
-import scala.concurrent.Future
+import scala.concurrent.{Await, Future}
+import scala.concurrent.duration._
 
-//TODO Pictures should know what album they are in
-//TODO handle deleting structures references to things that are deleted (albums pictures etc) if they still exist
+import language.postfixOps
 
 class F_PictureHandler(backbone: ActorRef) extends Actor with ActorLogging {
   import F_PictureHandler._
@@ -22,17 +22,12 @@ class F_PictureHandler(backbone: ActorRef) extends Actor with ActorLogging {
 
   val albums = collection.mutable.Map[BigInt, F_Album]()
   val pictures = collection.mutable.Map[BigInt, F_Picture]()
-  val pictureData = collection.mutable.Map[BigInt, Array[Byte]]()
+  val pictureData = collection.mutable.Map[BigInt, File]()
 
-  val defaultPictureFile = new File("pictures/defaultpic.jpg")
+  val defaultPictureFile = new File("images/defaultpic.jpg")
 
-  val defaultPictureArray = new Array[Byte](defaultPictureFile.length().asInstanceOf[Int])
+  pictureData.put(defaultPictureDataID, defaultPictureFile)
 
-  (new FileInputStream(defaultPictureFile)).read(defaultPictureArray)
-
-  pictureData.put(defaultPictureDataID, defaultPictureArray)
-
-  //TODO store all pictures as files and read them back as files to send
   def receive = {
     case GetPictureInfo(id) =>
       val replyTo = sender
@@ -52,7 +47,10 @@ class F_PictureHandler(backbone: ActorRef) extends Actor with ActorLogging {
 
     case GetImage(id) => //does not send back JSON, sends image
       pictureData.get(id) match {
-        case Some(image) => sender ! image
+        case Some(image) =>
+          val byteBuffer = new Array[Byte](image.length.asInstanceOf[Int]) //TODO UPDATE TO STREAMING SOCKET, this will crash the server as is if files are large
+          new FileInputStream(image).read(byteBuffer)
+          sender ! byteBuffer
         case None => sender ! noSuchImageFailure(id)
       }
 
@@ -64,7 +62,7 @@ class F_PictureHandler(backbone: ActorRef) extends Actor with ActorLogging {
 
     case CreateDefaultAlbum(ownerID) =>
       val id = getUniqueRandomBigInt(albums)
-      albums.put(id, F_Album("Default Album", "default album generated for you by Fakebook", new Date, ownerID, id, List[BigInt]()))
+      albums.put(id, F_Album("Default Album", "default album generated for you by Fakebook", new Date, isDefault = true, ownerID, id, List[BigInt]()))
       sender ! id
 
     case UpdateImageData(id, request) =>
@@ -91,6 +89,7 @@ class F_PictureHandler(backbone: ActorRef) extends Actor with ActorLogging {
             currentParameter match {
               case F_Picture.`nameString` => updateCurrentUserInstance(picture.copy(name = value), params, parametersRemaining.tail)
               case F_Picture.`descriptionString` => updateCurrentUserInstance(picture.copy(description = value), params, parametersRemaining.tail)
+              case F_Picture.`albumString` => updateCurrentUserInstance(picture.copy(containingAlbum = BigInt(value, 16)), params, parametersRemaining.tail)
               case _ => throw new IllegalArgumentException("there is no case to handle such parameter in the list (system issue)")
             }
           case None =>
@@ -167,7 +166,17 @@ class F_PictureHandler(backbone: ActorRef) extends Actor with ActorLogging {
         }
       }
 
-      (extractComponent(F_Picture.nameString), extractComponent(F_Picture.descriptionString), new Date, imageID, pictureID)
+      val ownerID = BigInt(extractComponent(F_Picture.ownerString), 16)
+
+      val albumID = params.find(_._1 == F_Picture.albumString) match {
+        case Some(x) =>
+          val tempAlbumID = BigInt(x._2, 16)
+          if(albums.contains(tempAlbumID)) tempAlbumID else throw noSuchAlbumException(List(tempAlbumID))
+        case None =>
+          Await.result((backbone ? GetUserInfo(ownerID)).mapTo[F_User].map(x => backbone ? GetProfileInfo(x.profileID)).mapTo[F_UserProfile].map(_.albumIDs.last), 5 seconds)
+      }
+
+      (extractComponent(F_Picture.nameString), extractComponent(F_Picture.descriptionString), albumID,  new Date, imageID, pictureID, ownerID)
     }
 
     try {
@@ -193,7 +202,7 @@ class F_PictureHandler(backbone: ActorRef) extends Actor with ActorLogging {
         }
       }
 
-      (extractComponent(F_Album.nameString), extractComponent(F_Album.descriptionString), new Date, BigInt(extractComponent(F_Album.ownerString), 16), albumID, List[BigInt]())
+      (extractComponent(F_Album.nameString), extractComponent(F_Album.descriptionString), new Date, false, BigInt(extractComponent(F_Album.ownerString), 16), albumID, List[BigInt]())
     }
 
     try {
@@ -208,23 +217,49 @@ class F_PictureHandler(backbone: ActorRef) extends Actor with ActorLogging {
   }
 
   def deletePicture(id: BigInt) = {
-    pictures.remove(id) match {
-      case Some(user) => sender ! "User Deleted!"
-      case None => sender ! noSuchPictureFailure(id)
+    try {
+      pictures.remove(id) match {
+        case Some(pic) =>
+          val album = albums.getOrElse(pic.containingAlbum, throw noSuchAlbumException(List(pic.containingAlbum)))
+          albums.put(pic.containingAlbum, album.copy(images = album.images.filter(_ != id)))
+          removePictureData(pic.fileID)
+          sender ! "Picture Deleted!"
+        case None => sender ! noSuchPictureFailure(id)
+      }
+    } catch {
+      case ex: Exception =>
+        sender ! actor.Status.Failure(ex)
+    }
+  }
+
+  def removePictureData(id: BigInt) = {
+    pictureData.remove(id) match {
+      case Some(x) =>
+        x.delete
+      case None =>
+        throw noSuchImageException(List(id))
     }
   }
 
   def deleteAlbum(id: BigInt) = {
-    albums.remove(id) match {
-      case Some(user) => sender ! "User Deleted!"
-      case None => sender ! noSuchAlbumFailure(id)
+    val album = albums.getOrElse(id, throw noSuchAlbumException(List(id)))
+    if(album.isDefault) sender ! "Cannot delete default albums"
+    else {
+      albums.remove(id) match {
+        case Some(albumx) =>
+          albumx.images.foreach(deletePicture)
+          sender ! "Album Deleted!"
+        case None => sender ! noSuchAlbumFailure(id)
+      }
     }
   }
 
   def placeImage(request: HttpRequest) = { //places image in database and returns the id
     val imageID = getUniqueRandomBigInt(pictureData)
     //SECURITY CHANGE make sure it is actually an image (not now)
-    pictureData.put(imageID, request.entity.data.toByteArray)
+    val file = new File("./images/" + imageID + ".jpg")
+    new FileOutputStream(file).write(request.entity.data.toByteArray)
+    pictureData.put(imageID, file)
     imageID
   }
 }

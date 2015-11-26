@@ -37,7 +37,6 @@ class F_Listener(backbone: ActorRef) extends HttpServiceActor with ActorLogging 
   }
 
   //NOTE: All IDs should be sent in HEX
-  //TODO routes broke when i had intermediate lambdas for some reason, but i needed the unmatched path, have to fix it
   val route: Route = { request =>
     pathPrefix("user") {
       log.debug("user path detected")

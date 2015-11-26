@@ -16,8 +16,6 @@ import scala.concurrent.duration._
 
 import language.postfixOps
 
-//TODO posts should know where they are and when removed remove themselves from that list if it still exists
-
 class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
   import F_PageProfileHandler._
   import context.dispatcher
@@ -270,9 +268,22 @@ class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
   }
 
   def deletePost(id: BigInt) = {
-    posts.remove(id) match {
-      case Some(x) => sender ! "Post Deleted!"
-      case None => sender ! noSuchPostFailure(id)
+    try {
+      posts.remove(id) match {
+        case Some(x) =>
+          if (x.locationType == F_Post.locationPage) {
+            val containingPage = pages.getOrElse(x.location, throw noSuchPageException(List(x.location)))
+            pages.put(x.location, containingPage.copy(posts = containingPage.posts.filter(_ != x.postID)))
+          } else if (x.locationType == F_Post.locationProfile) {
+            val containingProfile = profiles.getOrElse(x.location, throw noSuchPageException(List(x.location)))
+            profiles.put(x.location, containingProfile.copy(posts = containingProfile.posts.filter(_ != x.postID)))
+          }
+          sender ! "Post Deleted!"
+        case None => sender ! noSuchPostFailure(id)
+      }
+    } catch {
+      case ex: Exception =>
+        sender ! actor.Status.Failure(ex)
     }
   }
 

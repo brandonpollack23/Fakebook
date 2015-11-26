@@ -4,6 +4,7 @@ import java.util.Date
 
 case class F_Album(name: String, description: String,
                     dateOfCreation: Date,
+                    isDefault: Boolean,
                     ownerID: BigInt,
                     id: BigInt,
                     images: List[BigInt])
