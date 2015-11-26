@@ -151,6 +151,12 @@ class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
         params.get(currentParameter) match {
           case Some(value) =>
             currentParameter match {
+              case F_Page.`joinPageString` if value == "true" =>
+                val newUser = BigInt(params.getOrElse(F_Page.newUserString, throw new MissingFormatArgumentException("missing user id to join page")), 16)
+                updateCurrentPageInstance(page.copy(userList = newUser :: page.userList), params, parametersRemaining.tail)
+              case F_Page.`leavePageString` if value == "true" =>
+                val removeUser = BigInt(params.getOrElse(F_Page.newUserString, throw new MissingFormatArgumentException("missing user id to leave page")), 16)
+                updateCurrentPageInstance(page.copy(userList = page.userList.filter(_ != removeUser)), params, parametersRemaining.tail)
               case F_Page.`nameString` => updateCurrentPageInstance(page.copy(name = value), params, parametersRemaining.tail)
               case F_Page.`descriptionString` => updateCurrentPageInstance(page.copy(description = value), params, parametersRemaining.tail)
               case F_Page.`ownerString` => updateCurrentPageInstance(page.copy(ownerID = BigInt(value,16)), params, parametersRemaining.tail)

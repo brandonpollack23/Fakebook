@@ -11,9 +11,12 @@ case class F_Page(name: String, description: String,
                    ownerID: BigInt)
 
 object F_Page {
+  val joinPageString = "join"
+  val leavePageString = "leave"
+  val newUserString = "newuser"
   val nameString = "name"
   val descriptionString = "description"
   val ownerString = "owner"
 
-  val changableParameters = List(nameString, descriptionString, ownerString)
+  val changableParameters = List(nameString, descriptionString, ownerString, joinPageString, leavePageString)
 }
