@@ -15,5 +15,5 @@ object F_Page {
   val descriptionString = "description"
   val ownerString = "owner"
 
-  val changeableParameters = List(nameString, descriptionString, ownerString)
+  val changableParameters = List(nameString, descriptionString, ownerString)
 }

@@ -6,8 +6,7 @@ import akka.actor
 import akka.actor.{Props, ActorRef, ActorLogging, Actor}
 import akka.pattern.{pipe, ask}
 import graphnodes.{F_Post, F_UserProfile, F_Page}
-import spray.http.HttpRequest
-import system.F_BackBone
+import spray.http.{Uri, HttpRequest}
 import system.F_BackBone._
 import system.jsonFiles.{F_PostJSON, F_PageJSON, F_ProfileJSON}
 
@@ -15,6 +14,8 @@ import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
 
 import language.postfixOps
+
+//TODO posts should know where they are and when removed remove themselves from that list if it still exists
 
 class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
   import F_PageProfileHandler._
@@ -130,17 +131,143 @@ class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
     }
   }
 
-  def updatePageData(id: BigInt, request: HttpRequest) = ???
+  def updatePageData(id: BigInt, request: HttpRequest) = {
+    def updateCurrentPageInstance(page: F_Page, params: Uri.Query, parametersRemaining: List[String]): F_Page = {
+      if(parametersRemaining.isEmpty) {
+        page
+      } else {
+        val currentParameter = parametersRemaining.head
+        params.get(currentParameter) match {
+          case Some(value) =>
+            currentParameter match {
+              case F_Page.`nameString` => updateCurrentPageInstance(page.copy(name = value), params, parametersRemaining.tail)
+              case F_Page.`descriptionString` => updateCurrentPageInstance(page.copy(description = value), params, parametersRemaining.tail)
+              case F_Page.`ownerString` => updateCurrentPageInstance(page.copy(ownerID = BigInt(value,16)), params, parametersRemaining.tail)
+              case _ => throw new IllegalArgumentException("there is no case to handle such parameter in the list (system issue)")
+            }
+          case None =>
+            updateCurrentPageInstance(page, params, parametersRemaining.tail)
+        }
+      }
+    }
 
-  def updateProfileData(id: BigInt, request: HttpRequest) = ???
+    try{
+      val page = pages.getOrElse(id, throw noSuchPageException(List(id)))
 
-  def updatePostData(id: BigInt, request: Any) = ???
+      val params = request.uri.query
 
-  def deletePage(id: BigInt) = ???
+      val updatedPage = updateCurrentPageInstance(page, params, F_Page.changableParameters)
 
-  def deletePost(id: BigInt) = ???
+      pages.put(id, updatedPage)
 
-  def deleteUserProfile(id: BigInt) = ???
+      val replyTo = sender
+
+      Future(F_PageJSON.getJSON(updatedPage)) pipeTo replyTo
+    } catch {
+      case ex: Exception =>
+        sender ! actor.Status.Failure(ex)
+    }
+  }
+
+  def updateProfileData(id: BigInt, request: HttpRequest) = {
+    def updateCurrentProfileInstance(profile: F_UserProfile, params: Uri.Query, parametersRemaining: List[String]): F_UserProfile = {
+      if(parametersRemaining.isEmpty) {
+        profile
+      } else {
+        val currentParameter = parametersRemaining.head
+        params.get(currentParameter) match {
+          case Some(value) =>
+            currentParameter match {
+              case F_UserProfile.`profilePictureString` => updateCurrentProfileInstance(profile.copy(profilePictureID = BigInt(value,16)), params, parametersRemaining.tail)
+              case F_UserProfile.`descriptionString` => updateCurrentProfileInstance(profile.copy(description = value), params, parametersRemaining.tail)
+              case _ => throw new IllegalArgumentException("there is no case to handle such parameter in the list (system issue)")
+            }
+          case None =>
+            updateCurrentProfileInstance(profile, params, parametersRemaining.tail)
+        }
+      }
+    }
+
+    try{
+      val profile = profiles.getOrElse(id, throw noSuchProfileException(List(id)))
+
+      val params = request.uri.query
+
+      val updatedProfile = updateCurrentProfileInstance(profile, params, F_Page.changableParameters)
+
+      profiles.put(id, updatedProfile)
+
+      val replyTo = sender
+
+      Future(F_ProfileJSON.getJSON(updatedProfile)) pipeTo replyTo
+    } catch {
+      case ex: Exception =>
+        sender ! actor.Status.Failure(ex)
+    }
+  }
+
+  def updatePostData(id: BigInt, request: HttpRequest) = {
+    def updateCurrentPostInstance(post: F_Post, params: Uri.Query, parametersRemaining: List[String]): F_Post = {
+      if(parametersRemaining.isEmpty) {
+        post
+      } else {
+        val currentParameter = parametersRemaining.head
+        params.get(currentParameter) match {
+          case Some(value) =>
+            currentParameter match {
+              case F_Post.`contentsString` => updateCurrentPostInstance(post.copy(contents = value), params, parametersRemaining.tail)
+              case _ => throw new IllegalArgumentException("there is no case to handle such parameter in the list (system issue)")
+            }
+          case None =>
+            updateCurrentPostInstance(post, params, parametersRemaining.tail)
+        }
+      }
+    }
+
+    try{
+      val post = posts.getOrElse(id, throw noSuchPostException(List(id)))
+
+      val params = request.uri.query
+
+      val updatedPost = updateCurrentPostInstance(post, params, F_Page.changableParameters)
+
+      posts.put(id, updatedPost)
+
+      val replyTo = sender
+
+      Future(F_PostJSON.getJSON(updatedPost)) pipeTo replyTo
+    } catch {
+      case ex: Exception =>
+        sender ! actor.Status.Failure(ex)
+    }
+  }
+
+  def deletePage(id: BigInt) = {
+    pages.remove(id) match {
+      case Some(x) =>
+        x.albumIDs.foreach(backbone ! DeleteAlbum(_))
+        x.posts.foreach(backbone ! DeletePost(_))
+        sender ! "Page Deleted!"
+      case None => sender ! noSuchPageFailure(id)
+    }
+  }
+
+  def deletePost(id: BigInt) = {
+    posts.remove(id) match {
+      case Some(x) => sender ! "Post Deleted!"
+      case None => sender ! noSuchPostFailure(id)
+    }
+  }
+
+  def deleteUserProfile(id: BigInt) = {
+    profiles.remove(id) match {
+      case Some(x) =>
+        x.albumIDs.foreach(backbone ! DeleteAlbum(_))
+        x.profileID
+      case None =>
+        actor.Status.Failure(noSuchProfileException(List(id)))
+    }
+  }
 }
 
 object F_PageProfileHandler {

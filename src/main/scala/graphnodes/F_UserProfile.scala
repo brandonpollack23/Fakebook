@@ -8,3 +8,10 @@ case class F_UserProfile(posts: List[BigInt], //list of PostIDs
                        profilePictureID: BigInt,
                        description: String,
                        profileID: BigInt)
+
+object F_UserProfile {
+  val profilePictureString = "profilepicture"
+  val descriptionString = "description"
+
+  val changableParameters = List(profilePictureString, descriptionString)
+}

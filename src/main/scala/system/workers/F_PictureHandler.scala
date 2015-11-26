@@ -13,6 +13,9 @@ import system.jsonFiles.{F_PictureJSON, F_AlbumJSON}
 
 import scala.concurrent.Future
 
+//TODO Pictures should know what album they are in
+//TODO handle deleting structures references to things that are deleted (albums pictures etc) if they still exist
+
 class F_PictureHandler(backbone: ActorRef) extends Actor with ActorLogging {
   import F_PictureHandler._
   import context.dispatcher
