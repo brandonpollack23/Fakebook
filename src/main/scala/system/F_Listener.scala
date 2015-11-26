@@ -1,7 +1,5 @@
 package system
 
-import java.io.File
-
 import akka.actor.{Terminated, Props, ActorRef, ActorLogging}
 import akka.util.Timeout
 import spray.can.Http
@@ -20,8 +18,6 @@ import scala.util.{Failure, Success}
 
 import language.postfixOps
 
-//TODO edit and delte posts
-
 class F_Listener(backbone: ActorRef) extends HttpServiceActor with ActorLogging {
   import context.dispatcher
 
@@ -34,7 +30,7 @@ class F_Listener(backbone: ActorRef) extends HttpServiceActor with ActorLogging 
       context.watch(sender)
       context.become {
         runRoute(route) orElse {
-          case Terminated(x) =>
+          case Terminated(_) =>
             context.stop(self)
         }
       }
@@ -112,6 +108,21 @@ class F_Listener(backbone: ActorRef) extends HttpServiceActor with ActorLogging 
       } ~
       delete { req =>
         genericDelete(req, DeletePicture)
+      }
+    } ~
+    pathPrefix("post") {
+      log.debug("post path detected")
+      get { req =>
+        genericGet(req, GetPostInfo)
+      } ~
+      post { req =>
+        genericPost(req, UpdatePostData)
+      } ~
+      put { req =>
+        genericPut(CreatePost(req.request))
+      } ~
+      delete { req =>
+        genericDelete(req, DeletePost)
       }
     } ~
     pathPrefix("album") {

@@ -5,6 +5,7 @@ import java.util.{MissingFormatArgumentException, Date}
 import akka.actor
 import akka.actor.{Props, ActorRef, ActorLogging, Actor}
 import akka.pattern.{pipe, ask}
+import akka.util.Timeout
 import graphnodes.{F_Post, F_UserProfile, F_Page}
 import spray.http.{Uri, HttpRequest}
 import system.F_BackBone._
@@ -20,6 +21,8 @@ import language.postfixOps
 class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
   import F_PageProfileHandler._
   import context.dispatcher
+
+  implicit val timeout = Timeout(5 seconds)
 
   val pages = collection.mutable.Map[BigInt, F_Page]()
   val profiles = collection.mutable.Map[BigInt, F_UserProfile]()
@@ -40,6 +43,14 @@ class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
       pages.get(id) match {
         case Some(page) => Future(F_PageJSON.getJSON(page)) pipeTo replyTo
         case None => replyTo ! noSuchPageFailure(id)
+      }
+
+    case GetPostInfo(id) =>
+      val replyTo = sender
+
+      posts.get(id) match {
+        case Some(post) => Future(F_PostJSON.getJSON(post)) pipeTo replyTo
+        case None => replyTo ! noSuchPostFailure(id)
       }
 
     case CreateUserProfile(userID) =>
@@ -67,7 +78,7 @@ class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
       deletePost(id)
 
     case DeleteUserProfile(id) =>
-      sender ! deleteUserProfile(id) //also intersystem
+      deleteUserProfile(id)
   }
 
   def createUserProfile(userID: BigInt) = {
@@ -263,9 +274,8 @@ class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
     profiles.remove(id) match {
       case Some(x) =>
         x.albumIDs.foreach(backbone ! DeleteAlbum(_))
-        x.profileID
       case None =>
-        actor.Status.Failure(noSuchProfileException(List(id)))
+        log.error("No such profile with id " + id)
     }
   }
 }

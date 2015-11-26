@@ -47,12 +47,8 @@ class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
     case DeleteUser(id) =>
       users.remove(id) match {
         case Some(user) =>
-          (backbone ? DeleteUserProfile(user.profileID)) onComplete {
-            case Some(fail: actor.Status.Failure) =>
-              sender ! fail
-            case Some(_) =>
-              sender ! "User Deleted!"
-          }
+          backbone ! DeleteUserProfile(user.profileID)
+          sender ! "User Deleted!"
         case None => sender ! noSuchUserFailure(id)
       }
 

@@ -1,6 +1,7 @@
 package clientSim
 
 
+import akka.util.Timeout
 import spray.http._
 import HttpMethods._
 import akka.pattern.ask
@@ -16,11 +17,17 @@ import ExecutionContext.Implicits.global
 import spray.httpx.SprayJsonSupport
 import spray.json.AdditionalFormats
 import graphnodes._
+
+import scala.concurrent.duration._
+import language.postfixOps
 //import scala.util.{Success, Failure}
 
 
 
 class F_BaseClient extends Actor with SprayJsonSupport with AdditionalFormats with ActorLogging{
+
+  implicit val system = context.system
+  implicit val timeout = Timeout(5 seconds)
 
   log.debug("Starting client side logs\n")
 
@@ -50,7 +57,6 @@ class F_BaseClient extends Actor with SprayJsonSupport with AdditionalFormats wi
   case class userCreated(res: Future[HttpResponse])
 
 def receive = {
-
   //Create operations
   case createUser =>
     val uri = Uri("https://www.fakebook.com/newuser?") withQuery(F_User.lastNameString -> "",F_User.firstNameString -> "", F_User.bioString -> "", F_User.dobString -> "", F_User.ageString -> "")

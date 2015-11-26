@@ -34,6 +34,9 @@ class F_BackBone(f_pictureHandler: ActorRef, f_userHandler: ActorRef, f_pageProf
     case GetImage(id) =>
       f_pictureHandler forward GetImage(id)
 
+    case GetPostInfo(id) =>
+      f_pageProfileHandler forward GetPostInfo(id)
+
     //POST functions
     case UpdateUserData(id, req) =>
       f_userHandler forward UpdateUserData(id, req)
@@ -43,6 +46,9 @@ class F_BackBone(f_pictureHandler: ActorRef, f_userHandler: ActorRef, f_pageProf
 
     case UpdateProfileData(id, req) =>
       f_pageProfileHandler forward UpdateProfileData(id, req)
+
+    case UpdatePostData(id, req) =>
+      f_pageProfileHandler forward UpdatePostData(id, req)
 
     case UpdateImageData(id, req) =>
       f_pictureHandler forward UpdateImageData(id, req)
@@ -69,6 +75,9 @@ class F_BackBone(f_pictureHandler: ActorRef, f_userHandler: ActorRef, f_pageProf
     case CreateAlbum(req) =>
       f_pictureHandler forward CreateAlbum(req)
 
+    case CreatePost(req) =>
+      f_pageProfileHandler forward CreatePost(req)
+
     //DELETE functions
     case DeleteUser(id) =>
       f_userHandler forward DeleteUser(id)
@@ -81,6 +90,9 @@ class F_BackBone(f_pictureHandler: ActorRef, f_userHandler: ActorRef, f_pageProf
 
     case DeleteAlbum(id) =>
       f_pictureHandler forward DeleteAlbum(id)
+
+    case DeletePost(id) =>
+      f_pageProfileHandler forward DeletePost(id)
 
     //InterSystem messages
     case CreateUserProfile(userID) =>
@@ -99,6 +111,7 @@ object F_BackBone {
   case class GetPictureInfo(id: BigInt) extends GetInfo
   case class GetAlbumInfo(id: BigInt) extends GetInfo
   case class GetImage(id: BigInt) extends GetInfo
+  case class GetPostInfo(id: BigInt) extends GetInfo
 
   sealed trait PostInfo
   case class UpdateUserData(id: BigInt, httpRequest: HttpRequest) extends PostInfo
