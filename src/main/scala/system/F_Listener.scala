@@ -1,10 +1,11 @@
 package system
 
-import akka.actor.{Terminated, Props, ActorRef, ActorLogging}
+import akka.actor._
+import akka.event.{Logging, LoggingAdapter}
 import akka.util.Timeout
 import spray.can.Http
 import spray.http.HttpRequest
-import spray.routing.directives.OnCompleteFutureMagnet
+import spray.routing.directives.{DebuggingDirectives, OnCompleteFutureMagnet}
 import spray.routing._
 import spray.http.StatusCodes._
 
@@ -18,10 +19,10 @@ import scala.util.{Failure, Success}
 
 import language.postfixOps
 
-class F_Listener(backbone: ActorRef) extends HttpServiceActor with ActorLogging {
-  import context.dispatcher
+class F_Listener(backBoneActor: ActorRef) extends Actor with F_ListenerService with ActorLogging {
+  override def backbone: ActorRef = backBoneActor
 
-  implicit val timeout = Timeout(5 seconds)
+  def actorRefFactory = context
 
   log.debug("beginning user log\n")
 
@@ -35,113 +36,121 @@ class F_Listener(backbone: ActorRef) extends HttpServiceActor with ActorLogging 
         }
       }
   }
+}
+
+object F_Listener {
+  def props(backbone: ActorRef) = Props(new F_Listener(backbone))
+}
+
+trait F_ListenerService extends HttpService {
+  implicit def log: LoggingAdapter
+  def backbone: ActorRef
+
+  implicit def executionContext = actorRefFactory.dispatcher
+
+  implicit val timeout = Timeout(5 seconds)
+
+  DebuggingDirectives.logRequestResponse("user-get", Logging.DebugLevel)
 
   //NOTE: All IDs should be sent in HEX
   val route: Route = { request =>
     pathPrefix("user") {
-      log.debug("user path detected")
       path("newuser") {
         put { req =>
           genericPut(CreateUser(req.request))
         }
       } ~
-      get { req =>
-        genericGet(req, GetUserInfo)
-      } ~
-      post { req =>
-        pathPrefix("request") { req2 =>
-          genericPost(req2, RequestFriend)
+        get { req =>
+          genericGet(req, GetUserInfo)
         } ~
-        pathPrefix("remove") { req2 =>
-          genericPost(req2, RemoveFriend)
+        post { req =>
+          pathPrefix("request") { req2 =>
+            genericPost(req2, RequestFriend)
+          } ~
+            pathPrefix("remove") { req2 =>
+              genericPost(req2, RemoveFriend)
+            }
+          genericPost(req, HandleFriendRequest)
+        } ~
+        delete { req =>
+          genericDelete(req, DeleteUser)
         }
-        genericPost(req, HandleFriendRequest)
-      } ~
-      delete { req =>
-        genericDelete(req, DeleteUser)
-      }
     } ~
-    pathPrefix("data") {
-      log.debug("data path detected")
-      get { req =>
-        getImage(req) //URIs for actual data like pictures
+      pathPrefix("data") {
+        get { req =>
+          getImage(req) //URIs for actual data like pictures
+        } ~
+          path("uploadimage") {
+            put { req =>
+              genericPut(PutImage(req.request))
+            }
+          }
       } ~
-      path("uploadimage") {
-        put { req =>
-          genericPut(PutImage(req.request))
+      pathPrefix("page") {
+        get { req =>
+          genericGet(req, GetPageInfo)
+        } ~
+          post { req =>
+            genericPost(req, UpdatePageData)
+          } ~
+          delete { req =>
+            genericDelete(req, DeletePage)
+          }
+        path("newpage") {
+          put { req =>
+            genericPut(CreatePage(req.request))
+          }
+        }
+      } ~
+      pathPrefix("profile") {
+        get { req =>
+          genericGet(req, GetProfileInfo)
+        } ~ //no need for "createprofile" they are created with the user and can be accessed through the JSON returned with that creation
+          post { req =>
+            genericPost(req, UpdateProfileData)
+          } //no need to delete profile, deleted with user
+      } ~
+      pathPrefix("picture") {
+        get { req =>
+          genericGet(req, GetPictureInfo)
+        } ~ //same as for profile, when you upload an image the picture JSON is created
+          post { req =>
+            genericPost(req, UpdateImageData)
+          } ~
+          delete { req =>
+            genericDelete(req, DeletePicture)
+          }
+      } ~
+      pathPrefix("post") {
+        get { req =>
+          genericGet(req, GetPostInfo)
+        } ~
+          post { req =>
+            genericPost(req, UpdatePostData)
+          } ~
+          put { req =>
+            genericPut(CreatePost(req.request))
+          } ~
+          delete { req =>
+            genericDelete(req, DeletePost)
+          }
+      } ~
+      pathPrefix("album") {
+        get { req =>
+          genericGet(req, GetAlbumInfo)
+        } ~
+          post { req =>
+            genericPost(req, UpdateAlbumData)
+          } ~
+          delete { req =>
+            genericDelete(req, DeleteAlbum)
+          }
+        path("createalbum") {
+          put { req =>
+            genericPut(CreateAlbum(req.request))
+          }
         }
       }
-    } ~
-    pathPrefix("page") {
-      log.debug("page path detected")
-      get { req =>
-        genericGet(req, GetPageInfo)
-      } ~
-      post { req =>
-        genericPost(req, UpdatePageData)
-      } ~
-      delete { req =>
-        genericDelete(req, DeletePage)
-      }
-      path("newpage") {
-        put { req =>
-          genericPut(CreatePage(req.request))
-        }
-      }
-    } ~
-    pathPrefix("profile") {
-      log.debug("profile path detected")
-      get { req =>
-        genericGet(req, GetProfileInfo)
-      } ~ //no need for "createprofile" they are created with the user and can be accessed through the JSON returned with that creation
-      post { req =>
-        genericPost(req, UpdateProfileData)
-      } //no need to delete profile, deleted with user
-    } ~
-    pathPrefix("picture") {
-      log.debug("picture path detected")
-      get { req =>
-        genericGet(req, GetPictureInfo)
-      } ~ //same as for profile, when you upload an image the picture JSON is created
-      post { req =>
-        genericPost(req, UpdateImageData)
-      } ~
-      delete { req =>
-        genericDelete(req, DeletePicture)
-      }
-    } ~
-    pathPrefix("post") {
-      log.debug("post path detected")
-      get { req =>
-        genericGet(req, GetPostInfo)
-      } ~
-      post { req =>
-        genericPost(req, UpdatePostData)
-      } ~
-      put { req =>
-        genericPut(CreatePost(req.request))
-      } ~
-      delete { req =>
-        genericDelete(req, DeletePost)
-      }
-    } ~
-    pathPrefix("album") {
-      log.debug("album path detected")
-      get { req =>
-        genericGet(req, GetAlbumInfo)
-      } ~
-      post { req =>
-        genericPost(req, UpdateAlbumData)
-      } ~
-      delete { req =>
-        genericDelete(req, DeleteAlbum)
-      }
-      path("createalbum") {
-        put { req =>
-          genericPut(CreateAlbum(req.request))
-        }
-      }
-    }
   }
 
   /**
@@ -276,11 +285,6 @@ class F_Listener(backbone: ActorRef) extends HttpServiceActor with ActorLogging 
     else reject
   }
 }
-
-object F_Listener {
-  def props(backbone: ActorRef) = Props(new F_Listener(backbone))
-}
-
 
 /*ideas for speed improvements:
 parse out arguments before passing to backbone (might help with scaling to distributed system)

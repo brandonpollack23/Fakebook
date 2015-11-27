@@ -6,6 +6,7 @@ import java.util.{Date, MissingFormatArgumentException}
 import akka.actor
 import akka.actor.{Props, ActorRef, ActorLogging, Actor}
 import akka.pattern.{pipe, ask}
+import akka.util.Timeout
 import graphnodes.{F_UserProfile, F_User, F_Picture, F_Album}
 import spray.http.{Uri, HttpRequest}
 import system.F_BackBone._
@@ -19,6 +20,8 @@ import language.postfixOps
 class F_PictureHandler(backbone: ActorRef) extends Actor with ActorLogging {
   import F_PictureHandler._
   import context.dispatcher
+
+  implicit val timeout = Timeout(5 seconds)
 
   val albums = collection.mutable.Map[BigInt, F_Album]()
   val pictures = collection.mutable.Map[BigInt, F_Picture]()
