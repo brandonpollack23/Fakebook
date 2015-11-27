@@ -15,6 +15,7 @@ object MyJsonProtocol extends DefaultJsonProtocol {
                           JsArray(JsString(p.name),
                           JsString(p.description),
                           JsNumber(p.dateOfCreation.getTime),
+                          JsBoolean(p.isDefault),
                           JsString(p.ownerID.toString(16)),
                           JsString(p.id.toString(16)),
                           JsArray(p.images.map(_.toJson).toVector) )
@@ -22,13 +23,15 @@ object MyJsonProtocol extends DefaultJsonProtocol {
     def read(value: JsValue) = value match {
                     case  JsArray(Vector(JsString(name),
                           JsString(description),
-                          JsNumber(date),
+                          JsNumber(dateOfCreation),
+                          JsBoolean(isDefault),
                           JsString(ownerId),
                           JsString(id),
                           JsArray(images))) =>
                       new F_Album(name,
                           description,
-                          new Date(date.toLong),
+                          new Date(dateOfCreation.toLong),
+                          isDefault,
                           BigInt(ownerId),
                           BigInt(id),
                           images.map(_.convertTo[BigInt])(collection.breakOut) )
@@ -74,20 +77,26 @@ object MyJsonProtocol extends DefaultJsonProtocol {
     def write(p: F_Picture) =
                             JsArray(JsString(p.name),
                             JsString(p.description),
+                            JsString(p.containingAlbum.toString(16)),
                             JsNumber(p.dateOfCreation.getTime),
                             JsString(p.fileID.toString(16)),
+                            JsString(p.pictureID.toString(16)),
                             JsString(p.ownerID.toString(16)) )
 
     def read(value: JsValue) = value match {
                        case JsArray(Vector(JsString(name),
                             JsString(description),
-                            JsNumber(date),
+                            JsString(containingAlbum),
+                            JsNumber(dateOfCreation),
                             JsString(fileID),
+                            JsString(pictureID),
                             JsString(ownerID))) =>
                         new F_Picture(name,
                             description,
-                            new java.util.Date(date.toLong),
+                            BigInt(containingAlbum),
+                            new java.util.Date(dateOfCreation.toLong),
                             BigInt(fileID),
+                            BigInt(pictureID),
                             BigInt(ownerID))
                        case _ => deserializationError("Picture Expected")
     }
@@ -189,15 +198,18 @@ object MyJsonProtocol extends DefaultJsonProtocol {
 
 }
 
+
+
 //Alternate way to get own protocol which didn't work
 /*
-object MyJsonProtocol1 extends DefaultJsonProtocol {
+object MyJsonProtocol extends DefaultJsonProtocol {
 
   implicit val userFormat    = jsonFormat10(F_User.apply)
-  implicit val profileFormat = jsonFormat6(F_UserProfile)
+  implicit val profileFormat = jsonFormat6(F_UserProfile.apply)
   implicit val postFormat    = jsonFormat6(F_Post.apply)
-  implicit val pictureFormat = jsonFormat5(F_Picture.apply)
-  implicit val albumFormat   = jsonFormat6(F_Album.apply)
+  implicit val pictureFormat = jsonFormat7(F_Picture.apply)
+  implicit val albumFormat   = jsonFormat7(F_Album.apply)
   implicit val pageFormat    = jsonFormat8(F_Page.apply)
 
-}*/
+}
+*/
