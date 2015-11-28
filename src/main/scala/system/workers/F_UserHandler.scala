@@ -104,6 +104,7 @@ class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
       Future(F_UserJSON.getJSON(newUser)) pipeTo replyTo
     } catch {
       case ex: Exception =>
+        log.error("User error: " + ex + " " + ex.getCause)
         sender ! actor.Status.Failure(ex)
     }
   }

@@ -1,11 +1,12 @@
 package system
 
+import java.util.concurrent.TimeoutException
+
 import akka.actor._
-import akka.event.{LoggingAdapter}
+import akka.event.LoggingAdapter
 import akka.util.Timeout
 import spray.can.Http
 import spray.http.{HttpResponse, HttpRequest}
-import spray.routing.directives.{OnCompleteFutureMagnet}
 import spray.routing._
 import spray.http.StatusCodes._
 
@@ -20,27 +21,25 @@ import scala.util.{Failure, Success}
 
 import language.postfixOps
 
-class F_Listener(backBoneActor: ActorRef) extends Actor with F_ListenerService with ActorLogging {
+class F_Listener(backBoneActor: ActorRef, connectionHandler: ActorRef) extends Actor with F_ListenerService with ActorLogging {
   override def backbone: ActorRef = backBoneActor
 
   def actorRefFactory = context
 
+  context.watch(connectionHandler)
+
   log.debug("beginning user log\n")
 
-  def receive = {
-    case Http.Bound =>
-      context.watch(sender)
-      context.become {
-        runRoute(route) orElse {
-          case Terminated(_) =>
-            context.stop(self)
-        }
-      }
+  def receive = runRoute(route) orElse {
+    case Terminated(_) =>
+      context.stop(self)
+    case _ =>
+      log.debug("F_Listener does not recognize this message type")
   }
 }
 
 object F_Listener {
-  def props(backbone: ActorRef) = Props(new F_Listener(backbone))
+  def props(backbone: ActorRef, connectionHandler: ActorRef) = Props(new F_Listener(backbone, connectionHandler))
 }
 
 trait F_ListenerService extends HttpService {
@@ -49,109 +48,164 @@ trait F_ListenerService extends HttpService {
 
   implicit def executionContext = actorRefFactory.dispatcher
 
-  implicit val timeout = Timeout(5 seconds)
+  val timeout = 5 seconds
+
+  implicit val timeout2 = Timeout(timeout)
 
   //NOTE: All IDs should be sent in HEX
-  //TODO get routes working, now that PUT is all inside a complete we should be closer, perhaps it is right but we dont know yet
-  val route: Route = {
-    pathPrefix("users") { req =>
-      path("newuser") { req2 =>
-        put {
-          detach() {
-            complete(genericPut(CreateUser(req2.request)))
-          }
-        }
+  val extractRequestContext = extract(x => x)
+  val route: Route =  {
+    host("fakebook.com", "www.fakebook.com") {
+      pathSingleSlash {
+        complete("pong")
       } ~
-      get {
-        genericGet(req, GetUserInfo)
-      } ~
-      post {
-        pathPrefix("request") { req2 =>
-          genericPost(req2, RequestFriend)
+        pathPrefix("users") {
+            path("newuser") {
+                put {
+                  detach() {
+                    extractRequestContext { request => complete(genericPut(CreateUser(request.request))) }
+                  }
+                }
+            } ~
+              get {
+                detach() {
+                  extractRequestContext { request => complete(genericGet(request, GetUserInfo)) }
+                }
+              } ~
+              post {
+                pathPrefix("request") {
+                  detach() {
+                    extractRequestContext { request => complete(genericPost(request, RequestFriend)) }
+                  }
+                } ~
+                  pathPrefix("remove") {
+                    detach() {
+                      extractRequestContext { request => complete(genericPost(request, RemoveFriend)) }
+                    }
+                  } ~
+                  detach() {
+                    extractRequestContext { request => complete(genericPost(request, HandleFriendRequest)) }
+                  }
+              } ~
+              delete {
+                detach() {
+                  extractRequestContext { request => complete(genericDelete(request, DeleteUser)) }
+                }
+              }
         } ~
-        pathPrefix("remove") { req2 =>
-          genericPost(req2, RemoveFriend)
+        pathPrefix("data") {
+          get {
+            detach() {
+              extractRequestContext { request => complete(getImage(request)) }
+            } //URIs for actual data like pictures
+          } ~
+            path("uploadimage") {
+              put {
+                detach() {
+                  extractRequestContext { request => complete(genericPut(PutImage(request.request))) }
+                }
+              }
+            }
+        } ~
+        pathPrefix("page") {
+          get {
+            detach() {
+              extractRequestContext { request => complete(genericGet(request, GetPageInfo)) }
+            }
+          } ~
+            post {
+              detach() {
+                extractRequestContext { request => complete(genericPost(request, UpdatePageData)) }
+              }
+            } ~
+            delete {
+              detach() {
+                extractRequestContext { request => complete(genericDelete(request, DeletePage)) }
+              }
+            }
+          path("newpage") {
+            put {
+              detach() {
+                extractRequestContext { request => complete(genericPut(CreatePage(request.request))) }
+              }
+            }
+          }
+        } ~
+        pathPrefix("profile") {
+          get {
+            detach() {
+              extractRequestContext { request => complete(genericGet(request, GetProfileInfo)) }
+            }
+          } ~ //no need for "createprofile" they are created with the user and can be accessed through the JSON returned with that creation
+            post {
+              detach() {
+                extractRequestContext { request => complete(genericPost(request, UpdateProfileData)) }
+              }
+            } //no need to delete profile, deleted with user
+        } ~
+        pathPrefix("picture") {
+          get {
+            detach() {
+              extractRequestContext { request => complete(genericGet(request, GetPictureInfo)) }
+            }
+          } ~ //same as for profile, when you upload an image the picture JSON is created
+            post {
+              detach() {
+                extractRequestContext { request => complete(genericPost(request, UpdateImageData)) }
+              }
+            } ~
+            delete {
+              detach() {
+                extractRequestContext { request => complete(genericDelete(request, DeletePicture)) }
+              }
+            }
+        } ~
+        pathPrefix("post") {
+          get {
+            detach() {
+              extractRequestContext { request => complete(genericGet(request, GetPostInfo)) }
+            }
+          } ~
+            post {
+              detach() {
+                extractRequestContext { request => complete(genericPost(request, UpdatePostData)) }
+              }
+            } ~
+            put {
+              detach() {
+                extractRequestContext { request => complete(genericPut(CreatePost(request.request))) }
+              }
+            } ~
+            delete {
+              detach() {
+                extractRequestContext { request => complete(genericDelete(request, DeletePost)) }
+              }
+            }
+        } ~
+        pathPrefix("album") {
+          get {
+            detach() {
+              extractRequestContext { request => complete(genericGet(request, GetAlbumInfo)) }
+            }
+          } ~
+            post {
+              detach() {
+                extractRequestContext { request => complete(genericPost(request, UpdateAlbumData)) }
+              }
+            } ~
+            delete {
+              detach() {
+                extractRequestContext { request => complete(genericDelete(request, DeleteAlbum)) }
+              }
+            } ~
+            path("createalbum") {
+              put {
+                detach() {
+                  extractRequestContext { request => complete(genericPut(CreateAlbum(request.request))) }
+                }
+              }
+            }
         }
-        genericPost(req, HandleFriendRequest)
-      } ~
-      delete {
-        genericDelete(req, DeleteUser)
-      }
-    } ~
-    pathPrefix("data") { req =>
-      get {
-        getImage(req) //URIs for actual data like pictures
-      } ~
-      path("uploadimage") { req2 =>
-        put {
-          complete(genericPut(PutImage(req2.request)))
-        }
-      }
-    } ~
-    pathPrefix("page") { req =>
-      get {
-        genericGet(req, GetPageInfo)
-      } ~
-      post {
-        genericPost(req, UpdatePageData)
-      } ~
-      delete {
-        genericDelete(req, DeletePage)
-      }
-      path("newpage") { req =>
-        put {
-          complete(genericPut(CreatePage(req.request)))
-        }
-      }
-    } ~
-    pathPrefix("profile") { req =>
-      get {
-        genericGet(req, GetProfileInfo)
-      } ~ //no need for "createprofile" they are created with the user and can be accessed through the JSON returned with that creation
-      post {
-        genericPost(req, UpdateProfileData)
-      } //no need to delete profile, deleted with user
-    } ~
-    pathPrefix("picture") { req =>
-      get {
-        genericGet(req, GetPictureInfo)
-      } ~ //same as for profile, when you upload an image the picture JSON is created
-      post {
-        genericPost(req, UpdateImageData)
-      } ~
-      delete {
-        genericDelete(req, DeletePicture)
-      }
-    } ~
-    pathPrefix("post") { req =>
-      get {
-        genericGet(req, GetPostInfo)
-      } ~
-      post {
-        genericPost(req, UpdatePostData)
-      } ~
-      put {
-        complete(genericPut(CreatePost(req.request)))
-      } ~
-      delete {
-        genericDelete(req, DeletePost)
-      }
-    } ~
-    pathPrefix("album") { req =>
-      get {
-        genericGet(req, GetAlbumInfo)
-      } ~
-      post {
-        genericPost(req, UpdateAlbumData)
-      } ~
-      delete {
-        genericDelete(req, DeleteAlbum)
-      }
-      path("createalbum") { req2 =>
-        put {
-          complete(genericPut(CreateAlbum(req2.request)))
-        }
-      }
     }
   }
 
@@ -162,29 +216,31 @@ trait F_ListenerService extends HttpService {
    * @param messageConstructor the case class message (constructor but can be passed with sugar) to compose the bigint into
    * @return returns a route for thed spray routing to go through and side effects the complete needed
    */
-  def genericGet(req: RequestContext, messageConstructor: (BigInt) => GetInfo): Route = {
+  def genericGet(req: RequestContext, messageConstructor: (BigInt) => GetInfo) = {
     val id = req.unmatchedPath.toString
 
     if (!id.contains("/")) { //if this is the last element only
       try {
         val idBig = BigInt(id, 16)
-        onComplete(OnCompleteFutureMagnet((backbone ? messageConstructor.apply(idBig)).mapTo[String])) {
+        Await.ready((backbone ? messageConstructor.apply(idBig)).mapTo[String], timeout).value.get match {
           case Success(entityJson) =>
             log.info("get completed successfully: " + messageConstructor + " " + "for " + idBig)
-            complete(entityJson)
+            HttpResponse(OK, entityJson)
           case Failure(ex) =>
             log.error(ex, "get failed: " + messageConstructor + " for " + idBig)
-            complete(InternalServerError, "Request could not be completed: \n" + ex.getMessage)
+            HttpResponse(InternalServerError, "Request could not be completed: \n" + ex.getMessage)
         }
       } catch {
         case e: NumberFormatException =>
           log.info("illegally formatted id requested: " + id)
-          complete(BadRequest, "Numbers are formatted incorrectly")
+          HttpResponse(BadRequest, "Numbers are formatted incorrectly")
+        case ex: TimeoutException =>
+          HttpResponse(ServiceUnavailable, "The server is under heavy load and cannot currently process your request")
       }
     }
     else {
       //log.debug("uri not formatted correctly for a get")
-      reject
+      HttpResponse(NotFound, "The requested URI cannot be serviced")
     }
   }
 
@@ -200,23 +256,25 @@ trait F_ListenerService extends HttpService {
     if (!id.contains("/")) {
       try {
         val idBig = BigInt(id, 16)
-        onComplete(OnCompleteFutureMagnet((backbone ? messageConstructor.apply(idBig, req.request)).mapTo[String])) {
+        Await.ready((backbone ? messageConstructor.apply(idBig, req.request)).mapTo[String], timeout).value.get match {
           case Success(newEntityJson) =>
             log.info("post completed successfully: " + messageConstructor + " for " + idBig)
-            complete(newEntityJson)
+            HttpResponse(OK, newEntityJson)
           case Failure(ex) =>
             log.error(ex, "get failed: " + messageConstructor + " for " + idBig)
-            complete(InternalServerError, "Request could not be completed: \n" + ex.getMessage)
+            HttpResponse(InternalServerError, "Request could not be completed: \n" + ex.getMessage)
         }
       } catch {
-        case e: NumberFormatException =>
+        case ex: NumberFormatException =>
           log.info("illegally formatted id requested: " + id)
-          complete(BadRequest, "Numbers are formatted incorrectly")
+          HttpResponse(BadRequest, "Numbers are formatted incorrectly")
+        case ex: TimeoutException =>
+          HttpResponse(ServiceUnavailable, "The server is under heavy load and cannot currently process your request")
       }
     }
     else {
       //log.debug("uri not formatted correctly for a post")
-      reject
+      HttpResponse(NotFound, "The requested URI cannot be serviced")
     }
   }
 
@@ -226,13 +284,18 @@ trait F_ListenerService extends HttpService {
    * @return
    */
   def genericPut(message: PutInfo) = {
-    Await.ready((backbone ? message).mapTo[String], 5 seconds).value.get match {
-      case Success(newEntityJson) =>
-        log.info("put completed successfully: " + message)
-        HttpResponse(OK, newEntityJson)
-      case Failure(ex) =>
-        log.error(ex, "put failed: " + message)
-        HttpResponse(InternalServerError, "Error putting entity: " + ex.getMessage)
+    try {
+      Await.ready((backbone ? message).mapTo[String], timeout).value.get match {
+        case Success(newEntityJson) =>
+          log.info("put completed successfully: " + message)
+          HttpResponse(OK, newEntityJson)
+        case Failure(ex) =>
+          log.error(ex, "put failed: " + ex.getMessage)
+          HttpResponse(InternalServerError, "Error putting entity: " + ex.getMessage)
+      }
+    } catch {
+      case ex: TimeoutException =>
+        HttpResponse(ServiceUnavailable, "The server is under heavy load and cannot currently process your request")
     }
   }
 
@@ -248,23 +311,25 @@ trait F_ListenerService extends HttpService {
     if (!id.contains("/")) {
       try {
         val idBig = BigInt(id, 16)
-        onComplete(OnCompleteFutureMagnet((backbone ? messageConstructor.apply(idBig)).mapTo[String])) {
+        Await.ready((backbone ? messageConstructor.apply(idBig)).mapTo[String], timeout).value.get match {
           case Success(newEntityJson) =>
             log.info("delete completed successfully: " + messageConstructor + " for " + idBig)
-            complete(newEntityJson)
+            HttpResponse(OK, newEntityJson)
           case Failure(ex) =>
             log.error(ex, "get failed: " + messageConstructor + " for " + idBig)
-            complete(InternalServerError, "Request could not be completed: \n" + ex.getMessage)
+            HttpResponse(InternalServerError, "Request could not be completed: \n" + ex.getMessage)
         }
       } catch {
         case e: NumberFormatException =>
           log.info("illegally formatted id requested: " + id)
-          complete(BadRequest, "Numbers are formatted incorrectly")
+          HttpResponse(BadRequest, "Numbers are formatted incorrectly")
+        case ex: TimeoutException =>
+          HttpResponse(ServiceUnavailable, "The server is under heavy load and cannot currently process your request")
       }
     }
     else {
       //log.debug("uri not formatted correctly for delete")
-      reject
+      HttpResponse(NotFound, "The requested URI cannot be serviced")
     }
   }
 
@@ -279,21 +344,23 @@ trait F_ListenerService extends HttpService {
     if (!id.contains("/")) { //if this is the last element only
       try {
         val idBig = BigInt(id, 16)
-        onComplete(OnCompleteFutureMagnet((backbone ? GetImage(idBig)).mapTo[Array[Byte]])) {
+        Await.ready((backbone ? GetImage(idBig)).mapTo[Array[Byte]], timeout).value.get match {
           case Success(image) =>
             log.info("get completed successfully: " + GetImage + " " + "for " + idBig)
-            complete(image)
+            HttpResponse(OK, image)
           case Failure(ex) =>
             log.error(ex, "get failed: " + GetImage + " for " + idBig)
-            complete(InternalServerError, "Request could not be completed: \n" + ex.getMessage)
+            HttpResponse(InternalServerError, "Request could not be completed: \n" + ex.getMessage)
         }
       } catch {
         case e: NumberFormatException =>
           log.info("illegally formatted id requested: " + id)
-          complete(BadRequest, "Numbers are formatted incorrectly")
+          HttpResponse(BadRequest, "Numbers are formatted incorrectly")
+        case ex: TimeoutException =>
+          HttpResponse(ServiceUnavailable, "The server is under heavy load and cannot currently process your request")
       }
     }
-    else reject
+    else HttpResponse(NotFound, "The requested URI cannot be serviced")
   }
 }
 
