@@ -1,45 +1,299 @@
 package clientSim
 
+import java.text.SimpleDateFormat
+import java.util.Date
+
 import akka.actor._
 import graphnodes._
-import spray.json._
-import spray.httpx.SprayJsonSupport
-
+import scala.util.Random
+import scala.concurrent.duration._
+import scala.concurrent.ExecutionContext.Implicits.global
+//import spray.json._
+//import spray.httpx.SprayJsonSupport
+//TODO there is no unique ID in user profile to pass
+//TODO way to know a post created is on a profile or a page by its return type
 
 class F_AverageUserClient extends F_BaseClient {
 
+  case class begin()
   case class simulate()
+  case class performAction()
 
-  var user_ME = F_User(null, null, null, 0, null, null, null, null, null, null)
-  var profile_ME = new F_UserProfile(null, null, null, null, null, null)
+  //parameters for User
+  var firstName = "Ali"
+  var lastName = "Gator"
+  var bio : String = "Student@UF"
+  var age: Int = 25
+  val dobDate = new Date(1989-1900,12,12)
+  var description : String = "Gator Profile"
+  var description1:String = "new Gator Profile"
+  var firstName1:String = "new Ali"
+  var lastName1:String= "new Gator"
+  var bio1:String = "new Atudent@UF"
 
-/*
-  //from here: this may not be needed then, just use the object
-  var firstName :String = "Ali"
-  var lastName :String = "Gator"
-  var biography :String = "UF_Gator"
-  var age : Int = 21
-  var ID :BigInt = 0
-  var friendList :List[BigInt] = null
-  var friendRequests : List[BigInt] = null
-  var postList : List[String] = null
-  //upto here
-*/
+  //parameters for Post
+  var postContent: String = "content for a post"
+  var locationType1 : String = "profile"
+  var locationType2 : String= "page"
+  var myProfPosts = List[BigInt]()
+  var myPagePosts = List[BigInt]()
+
+  //Page managed by user
+  var pageName:String = "Gator Times"
+  var pageDes :String = "All about UF"
+  var pageName1:String = "new Gator Times"
+  var pageDes1:String = "and much more"
+  var myPage = F_Page(pageName, pageDes, null, null, null, null, null, null)
+  var myPages = List[F_Page]()
+
+  //default picture signature
+  var pName:String = "my Picture"
+  var pDes :String = "Vacation"
+  var myPics = List[BigInt]()
+  var pName1:String = "my new picture"
+  var pDes1:String =  "another vacation"
+
+  //album data
+  var albmName:String = "my Album"
+  var albmDes:String = "spring break"
+  var albmName1:String = "my new album"
+  var albmDes1:String = "thanksgiving"
+  var myAlbums = List[BigInt]()
+  //val dateFormatter = new SimpleDateFormat("'M'MM'D'dd'Y'yyyy")
+  //val dob = dateFormatter.format(dobDate)
+  //var friends = List[BigInt]()
+  //var friendResuests = List[BigInt]()
+  //var activity : Int = 0
+
+  var user_ME    =  F_User(null, null, null, 0,null, null, null, null, null, null)
+  var profile_ME =  F_UserProfile(null, null, null, null, null, null)
+
 
   override def receive ={
 
-    case begin =>
-      self ! createUser
+    case `begin` =>
+      self ! createUser(firstName, lastName, bio, age, dobDate)
 
     case userCreated(res) =>
-      user_ME = res.toJson.convertTo[F_User]
+      user_ME = res
+      self ! getUserProfile(user_ME.userID)
+
+    case userProfileRetrieved(res) =>
+      profile_ME = res
       self ! simulate
 
-    case simulate =>
-      print("success to simulate")
-      System.exit(1);
+    case `simulate` =>
+      val system = ActorSystem("MySystem")
+      system.scheduler.schedule(0 milliseconds, 1000 milliseconds )(self ! performAction)
+
+    case `performAction` =>
+      val x = Random.nextInt(100)
+
+      if(x<30)  //do some post activity  30 percent
+      {
+        val z = Random.nextInt(100)
+        if (z < 25) {
+          self ! createPost(user_ME.userID, postContent, locationType1, profile_ME.profileID)
+        }
+        if(z>=25 && z<50) {
+          if (myPage.ownerID != null)
+            self ! createPost(user_ME.userID, postContent, locationType2, myPage.ownerID)
+        }
+        if (z >= 50 && z < 65) {
+          if (profile_ME.posts.nonEmpty)
+            self ! getPost(user_ME.userID, profile_ME.posts(Random.nextInt(profile_ME.posts.length))) //from profile
+        }
+        if(z >= 65 && z<75) {
+          if (myPage.posts.nonEmpty)
+            self ! getPost(user_ME.userID, myPage.posts(Random.nextInt(myPage.posts.length))) //from page
+        }
+        if (z >= 75 && z < 85) {
+          if (profile_ME.posts.nonEmpty)
+            self ! updatePost(user_ME.userID, profile_ME.posts(Random.nextInt(profile_ME.posts.length))) //from profile
+        }
+          if(z>=85 && z< 90){
+            if (myPage.posts.nonEmpty)
+              self ! updatePost(user_ME.userID, myPage.posts(Random.nextInt(myPage.posts.length))) //from page
+          }
+        if(z>=90 && z<= 95) {
+          if (profile_ME.posts.nonEmpty)
+            self ! deletePost(user_ME.userID, profile_ME.posts(Random.nextInt(profile_ME.posts.length))) //from profile
+        }
+        else{
+          if (myPage.posts.nonEmpty)
+            self ! deletePost(user_ME.userID, myPage.posts(Random.nextInt(myPage.posts.length))) //from page
+        }
+      }
+
+
+
+      if(x>=30 && x<60)//do some picture/album activity 30 percent
+      {
+        val y = Random.nextInt(100)
+        if(y<=70) {
+          val z = Random.nextInt(100)
+          if (z <= 50) {
+            val indx = Random.nextInt(profile_ME.albumIDs.length)
+            self ! uploadPicture(pName, pDes, profile_ME.albumIDs(indx), user_ME.userID)
+          }
+          if (z > 50 && z < 75)
+            if(myPics.nonEmpty){
+            val indx = Random.nextInt(myPics.length)
+            self ! getPictureData(user_ME.userID, myPics(indx))
+            }
+          if (z >= 75 && z < 90)
+            if(myPics.nonEmpty) {
+              val indx = Random.nextInt(myPics.length)
+              self ! updatePictureData(pName1, pDes1, user_ME.userID, myPics(indx))
+            }
+          else
+            if(myPics.nonEmpty) {
+              val indx = Random.nextInt(myPics.length)
+              self ! deletePicture(user_ME.userID, myPics(indx))
+            }
+        }
+        else {
+          val z = Random.nextInt(100)
+          if (z <= 50)
+            self ! createAlbum(user_ME.userID, albmName, albmDes)
+          if (z > 50 && z < 75) {
+            val indx = Random.nextInt(profile_ME.albumIDs.length)
+            self ! getAlbumData(user_ME.userID, profile_ME.albumIDs(indx))
+          }
+          if (z >= 75 && z < 90) {
+            val indx = Random.nextInt(profile_ME.albumIDs.length)
+            self ! updateAlbumData(user_ME.userID, profile_ME.albumIDs(indx), albmName1, albmDes1 )
+          }
+          else {
+            val indx = Random.nextInt(profile_ME.albumIDs.length)
+           // if(indx!=0)
+           // self ! deleteAlbum(user_ME.userID, profile_ME.albumIDs(indx))  //unable to update profile_ME album list
+          }
+          }
+      }
+
+
+
+      if(x>=60 && x< 75)//do some profile update activity  15%
+      {
+        val z = Random.nextInt(100)
+        if (z <= 25)
+          self ! updateUserData(user_ME.userID, firstName1, lastName1, bio1)
+        if (z > 25 && z< 50)
+          self ! getUserData(user_ME.userID)
+        if(z>50 && z< 75)
+          self ! updateUserProfile(profile_ME.profileID, description1)
+        else
+          self ! getUserProfile(profile_ME.profileID)
+      }
+
+
+      if(x>=75 && x< 90)//do something about page  15%  //TODO no unique id about page declared in F_Page
+      {
+        val z = Random.nextInt(100)
+        if (z <= 50)
+          self ! createPage(user_ME.userID, pageName, pageDes)
+        if (z > 50 && z < 75)
+          self ! getPageData(user_ME.userID)
+        if (z >= 75 && z < 90)
+          self ! updatePageData(user_ME.userID, pageName1, pageDes1)
+        else
+          self ! deletePage(user_ME.userID)
+
+      }
+      if(x>=90)//do something about friendList - 10%
+      {
+
+      }
+
+
+    case postCreated(res,locationType) =>
+      if(locationType.equalsIgnoreCase("profile")){
+        log.info("created profile post received at end user")
+        myProfPosts ::= res.postID
+      }
+
+      if(locationType.equalsIgnoreCase("page")) {
+       log.info("created page post received at end user")
+        myPagePosts ::= res.postID
+      }
+
+    case postEdited(res) =>
+      log.info("Edited post received at end user")
+
+    case postRetrieved(res) =>
+      log.info("requested post received at end user")
+
+    case postDeleted(res) =>
+      log.info("postDeleted received at end user")
+
+
+    case userEdited(res) =>
+      log.info("User Data received at end user")
+      user_ME = res
+
+    case userRetrieved(res) =>
+      log.info("User data received at end user")
+
+    case profileEdited(res) =>
+      log.info("profile edit result received at end user")
+      profile_ME = res
+
+    case profileRetrieved(res) =>
+      log.info("get user Profile complete, response received at end user")
+
+
+    case pictureUploaded(res) =>
+      log.info("picture upload complete, response received at end user")
+      myPics ::= res.pictureID
+
+    case pictureEdited(res) =>
+      log.info("picture edit complete, response received at end user")
+
+
+    case pictureRetrieved(res) =>
+      log.info("requested picture received at end user")
+
+    case pictureDeleted(res) =>
+      log.info("picture Delete request completion received at end user")
+      myPics = myPics.filter(_!=res.pictureID)
+
+
+    case albumCreated(res) =>
+      log.info("create album response received at end user")
+      myAlbums ::= res.id
+      log.info("new album added to profile at end user")
+
+    case albumEdited(res) =>
+      log.info("album edit successful, response received at end user")
+
+    case albumRetrieved(res) =>
+      log.info("retrieve album successful, response received at end user")
+
+    case albumDeleted(res) =>
+      log.info("album delete successful, response received at end user")
+      //profile_ME.albumIDs = profile_ME.albumIDs.filter(_!=res.id)
+      log.info("profile edited with deleted album retracted")
+
+    case pageCreated(res) =>
+      log.info("page created, completion received at end user")
+      myPages ::= res
+
+    case pageEdited(res) =>
+      log.info("page edited, completion received at end user")
+
+    case pageRetrieved(res) =>
+      log.info("page retrieved, completion received at end user")
+
+    case pageDeleted(res) =>
+      log.info("page deleted, completion received at user end")
 
 
   }
+
+
+
+
+
 
 }

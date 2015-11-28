@@ -1,27 +1,29 @@
 package clientSim
 
-//import scala.concurrent.Future
-//import scala.concurrent.duration._
-//import akka.pattern.ask
-//import spray.can.Http
 //import akka.io.IO
 //import spray.json._
-//import akka.util.Timeout
 //import HttpMethods._
+//import spray.can.Http
+//import akka.pattern.ask
+//import akka.util.Timeout
 //import scala.concurrent._
+//import scala.concurrent.Future
+//import scala.concurrent.duration._
+//import spray.json.{JsonFormat, DefaultJsonProtocol}
 //import scala.concurrent.ExecutionContext.Implicits.global._
+
+import graphnodes._
 import akka.actor._
 import akka.actor.Actor
 import akka.actor.ActorSystem
-import spray.httpx.SprayJsonSupport
-import spray.json.AdditionalFormats
-import spray.json.{JsonFormat, DefaultJsonProtocol}
-import spray.client.pipelining._
 import spray.http._
-import graphnodes._
+import spray.client.pipelining._
+import spray.json.AdditionalFormats
+import spray.httpx.SprayJsonSupport
 import scala.util.{Success, Failure}
 import system.jsonFiles.MyJsonProtocol._
-
+import java.text.SimpleDateFormat
+import java.util.Date
 
 class F_BaseClient extends Actor with ActorLogging with SprayJsonSupport with AdditionalFormats
 {
@@ -29,37 +31,44 @@ class F_BaseClient extends Actor with ActorLogging with SprayJsonSupport with Ad
 
   log.debug("Starting client side logs\n")
 
-  case class createUser()
-  case class createPost(id : BigInt)
-  case class createPage(id : BigInt)
-  case class createAlbum(id : BigInt)
-  case class uploadPicture(id : BigInt)
-  case class updateUserData(id: BigInt)
-  case class updatePictureData(id : BigInt)
-  case class updateAlbumData(id :BigInt)
-  case class updatePost(id : BigInt)
-  case class updatePageData(id : BigInt)
+  case class createUser(fname:String, lName:String, bio:String, age:Int, dob:Date)
+  case class createPost(posterId: BigInt, content:String,locationType:String, locationId : BigInt)
+  case class createPage(userId : BigInt, pName:String, pDes:String)
+  case class createAlbum(id : BigInt, albmName:String, albmDes:String)
+  case class uploadPicture(pName:String, pDes:String, albumID : BigInt, userId: BigInt)
+
+  case class updateUserData(userID: BigInt, fName:String, lName:String, bio:String)
+  case class updateUserProfile(profId: BigInt, des:String)
+  case class updatePictureData(pName:String, pDes:String, albumID : BigInt, userId: BigInt)
+  case class updateAlbumData(useId :BigInt, albmId:BigInt, albmName:String, albmDes:String)
+  case class updatePost(id : BigInt, postID: BigInt)
+  case class updatePageData(userId : BigInt, pName:String, pDes:String)
+
   case class getUserData(id :BigInt)
-  case class getPictureData(id : BigInt)
-  case class getAlbumData(id : BigInt)
-  case class getPost(id : BigInt)
+  case class getUserProfile(id : BigInt)
+  case class getPictureData(userId : BigInt, picID:BigInt)
+  case class getAlbumData(userId : BigInt, albmId:BigInt)
+  case class getPost(userId : BigInt, postId:BigInt)
   case class getPageData(id :BigInt)
+
   case class deleteUser(id :BigInt)
-  case class deletePicture(id :BigInt)
-  case class deleteAlbum(Id :BigInt)
-  case class deletePost( id : BigInt)
+  case class deletePicture(userId :BigInt, picId:BigInt)
+  case class deleteAlbum(userId :BigInt, albmId:BigInt)
+  case class deletePost( id : BigInt, postId:BigInt)
   case class deletePage(id :BigInt)
-  case class sendFriendReq(id1 : BigInt, id2 :BigInt)
-  case class acceptFriendReq(id1 :BigInt, id2 :BigInt)
+
+  case class sendFriendReq(userId : BigInt, frndId :BigInt)
+  case class acceptFriendReq(userId :BigInt, frndId :BigInt)
 
   case class userCreated(res : F_User)
-  case class postCreated(res : F_Post)
+  case class postCreated(res : F_Post, locationType:String)
   case class pageCreated(res : F_Page)
   case class pictureUploaded(res : F_Picture)
   case class albumCreated(res : F_Album)
   case class profileCreated(res : F_UserProfile)
 
   case class userEdited(res : F_User)
+  case class userProfileEdited(res : F_UserProfile)
   case class postEdited(res : F_Post)
   case class pageEdited(res : F_Page)
   case class pictureEdited(res : F_Picture)
@@ -67,6 +76,7 @@ class F_BaseClient extends Actor with ActorLogging with SprayJsonSupport with Ad
   case class profileEdited(res : F_UserProfile)
 
   case class userRetrieved(res : F_User)
+  case class userProfileRetrieved(res : F_UserProfile)
   case class postRetrieved(res : F_Post)
   case class pageRetrieved(res : F_Page)
   case class pictureRetrieved(res : F_Picture)
@@ -87,19 +97,20 @@ class F_BaseClient extends Actor with ActorLogging with SprayJsonSupport with Ad
 
   implicit val system = ActorSystem()
   import system.dispatcher
+  val dateFormatter = new SimpleDateFormat("'M'MM'D'dd'Y'yyyy")
 
 def receive = {
 
 
   //Create operations
-  case createUser =>
+  case createUser(fname, lname, bio, age, dob) =>
 
-    val uri = Uri("https://www.fakebook.com/newuser?") withQuery( F_User.lastNameString -> "",
-                                                                  F_User.firstNameString -> "",
-                                                                  F_User.bioString -> "",
-                                                                  F_User.dobString -> "",
-                                                                  F_User.ageString -> "",
-                                                                 // F_User.changableParameters -> ,
+    val uri = Uri("https://www.fakebook.com/newuser?") withQuery( F_User.lastNameString -> fname,
+                                                                  F_User.firstNameString -> lname,
+                                                                  F_User.bioString -> bio,
+                                                                  F_User.dobString -> dateFormatter.format(dob),
+                                                                  F_User.ageString -> age.toString,
+                                                                  //F_User.changableParameters -> "",
                                                                   F_User.friendRequestString -> "",
                                                                   F_User.acceptFriendString -> "",
                                                                   F_User.friendRemoveString -> "")
@@ -121,21 +132,21 @@ def receive = {
 
     }
 
-  case createPost(id) =>
-    val uri = Uri("https://www.fakebook.com/newpost?") withQuery( F_Post.contentsString -> "",
-                                                                  F_Post.creatorString -> id.toString(16),
-                                                                  F_Post.locationType -> "",
+  case createPost(posterId, content, locationType, locationId) =>
+    val uri = Uri("https://www.fakebook.com/newpost?") withQuery( F_Post.contentsString -> content,
+                                                                  F_Post.creatorString -> posterId.toString(16),
+                                                                  F_Post.locationType -> locationType,
                                                                   F_Post.locationTypeString -> "",
                                                                   F_Post.locationPage -> "",
                                                                   F_Post.locationProfile -> "",
-                                                                  //F_Post.changableParamaters -> ,
-                                                                  F_Post.locationString -> "")
+                                                                  //F_Post.changableParamaters -> List(" "),
+                                                                  F_Post.locationString -> locationId.toString())
     val pipeline = sendReceive ~> unmarshal[F_Post]
     val responseFuture = pipeline {Put(uri)}
     responseFuture onComplete {
       case Success(f: F_Post) =>
         log.info("createPost successful!!")
-        sender ! postCreated(f)
+        sender ! postCreated(f, locationType)
 
       case Success(somethingUnexpected) =>
         log.warning("Something unexpected during createPost?")
@@ -145,14 +156,14 @@ def receive = {
 
     }
 
-  case createPage(id) =>
+  case createPage(userId, pName, pDes) =>
     val uri = Uri("https://www.fakebook.com/newpage?") withQuery( F_Page.joinPageString -> "",
                                                                   F_Page.leavePageString -> "",
                                                                   F_Page.newUserString -> "",
-                                                                  F_Page.nameString -> "",
-                                                                  F_Page.descriptionString -> "",
+                                                                  F_Page.nameString -> pName,
+                                                                  F_Page.descriptionString -> pDes,
                                                                   //F_Page.changableParameters -> ,
-                                                                  F_Page.ownerString -> id.toString(16))
+                                                                  F_Page.ownerString -> userId.toString(16))
     val pipeline = sendReceive ~> unmarshal[F_Page]
     val responseFuture = pipeline {Put(uri)}
     responseFuture onComplete {
@@ -168,11 +179,11 @@ def receive = {
 
     }
 
-  case createAlbum(id) =>
-    val uri = Uri("https://www.fakebook.com/createalbum?") withQuery( F_Album.ownerString -> id.toString(16),
-                                                                      F_Album.nameString -> "",
+  case createAlbum(userId, albmName, albmDes) =>
+    val uri = Uri("https://www.fakebook.com/createalbum?") withQuery( F_Album.ownerString -> userId.toString(16),
+                                                                      F_Album.nameString -> albmName,
                                                                       //F_Album.changableParameters -> ,
-                                                                      F_Album.descriptionString -> "")
+                                                                      F_Album.descriptionString -> albmDes)
     val pipeline = sendReceive ~> unmarshal[F_Album]
     val responseFuture = pipeline {Put(uri)}
     responseFuture onComplete {
@@ -188,12 +199,12 @@ def receive = {
 
     }
 
-  case uploadPicture(id) =>
-    val uri = Uri("https://www.fakebook.com/data/uploadimage?") withQuery(F_Picture.ownerString -> id.toString(16),
-                                                                          F_Picture.nameString -> "",
-                                                                          F_Picture.descriptionString -> "",
+  case uploadPicture(pName, pDes, albumId, userId) =>
+    val uri = Uri("https://www.fakebook.com/data/uploadimage?") withQuery(F_Picture.ownerString -> userId.toString(16),
+                                                                          F_Picture.nameString -> pName,
+                                                                          F_Picture.descriptionString -> pDes,
                                                                           //F_Picture.changableParameters -> ,
-                                                                          F_Picture.albumString -> "")
+                                                                          F_Picture.albumString -> albumId.toString(16))
 
     val pipeline = sendReceive ~> unmarshal[F_Picture]
     val responseFuture = pipeline {Put(uri)}
@@ -210,11 +221,13 @@ def receive = {
 
     }
 
+
+
   //Update operations
-  case updateUserData(id) =>        //TODO user object doesn't have id string
-    val uri = Uri("https://www.fakebook.com/user/request?") withQuery(F_User.lastNameString -> "",
-                                                                      F_User.firstNameString -> "",
-                                                                      F_User.bioString -> "",
+  case updateUserData(id, fName, lName, bio) =>        //TODO user object doesn't have id string
+    val uri = Uri("https://www.fakebook.com/user/request?") withQuery(F_User.lastNameString -> lName,
+                                                                      F_User.firstNameString -> fName,
+                                                                      F_User.bioString -> bio,
                                                                       F_User.dobString -> "",
                                                                       F_User.ageString -> "",
                                                                       // F_User.changableParameters -> ,
@@ -236,10 +249,32 @@ def receive = {
 
     }
 
-  case updatePictureData(id) =>
-    val uri = Uri("https://www.fakebook.com/picture?") withQuery( F_Picture.ownerString -> id.toString(16),
-                                                                  F_Picture.nameString -> "",
-                                                                  F_Picture.descriptionString -> "",
+
+  case updateUserProfile(profId, des) =>      //TODO no identifier for profile either
+    val uri = Uri("https://www.fakebook.com/profile?") withQuery( F_UserProfile.profilePictureString -> "",
+                                                                  // F_User.changableParameters -> ,
+                                                                  F_UserProfile.descriptionString -> des)
+    val pipeline = sendReceive ~> unmarshal[F_UserProfile]
+    val responseFuture = pipeline {Post(uri)}
+
+    responseFuture onComplete {
+      case Success(f: F_UserProfile) =>
+        log.info("updateUserData successful!!")
+        sender ! userProfileEdited(f)
+
+      case Success(somethingUnexpected) =>
+        log.warning("Something unexpected during upadateUserProfile?")
+
+      case Failure(error) =>
+        log.error(error, "Couldn't run updateUserProfile :(")
+
+    }
+
+
+  case updatePictureData(pName, pDes, userId, pId) =>     //TODO no way to identify picture without unique picture id
+    val uri = Uri("https://www.fakebook.com/picture?") withQuery( F_Picture.ownerString -> userId.toString(16),
+                                                                  F_Picture.nameString -> pName,
+                                                                  F_Picture.descriptionString -> pDes,
                                                                   //F_Picture.changableParameters -> ,
                                                                   F_Picture.albumString -> "")
 
@@ -258,11 +293,11 @@ def receive = {
 
     }
 
-  case updateAlbumData(id) =>
-    val uri = Uri("https://www.fakebook.com/album?") withQuery( F_Album.ownerString -> id.toString(16),
-                                                                F_Album.nameString -> "",
+  case updateAlbumData(userId, albmId, albmName, albmDes) =>
+    val uri = Uri("https://www.fakebook.com/album?") withQuery( F_Album.ownerString -> userId.toString(16),
+                                                                F_Album.nameString -> albmName,
                                                                 //F_Album.changableParameters ->
-                                                                F_Album.descriptionString -> "")
+                                                                F_Album.descriptionString -> albmDes)
     val pipeline = sendReceive ~> unmarshal[F_Album]
     val responseFuture = pipeline {Post(uri)}
 
@@ -279,7 +314,7 @@ def receive = {
 
     }
 
-  case updatePost(id) =>
+  case updatePost(id, postId) =>
     val uri = Uri("https://www.fakebook.com/post?") withQuery(F_Post.contentsString -> "",
                                                               F_Post.creatorString -> id.toString(16),
                                                               F_Post.locationType -> "",
@@ -287,7 +322,7 @@ def receive = {
                                                               F_Post.locationPage -> "",
                                                               F_Post.locationProfile -> "",
                                                               //F_Post.changableParamaters ->
-                                                              F_Post.locationString -> "")
+                                                              F_Post.locationString -> postId.toString(16))
     val pipeline = sendReceive ~> unmarshal[F_Post]
     val responseFuture = pipeline {Post(uri)}
 
@@ -304,14 +339,14 @@ def receive = {
 
     }
 
-  case updatePageData(id) =>
+  case updatePageData(userId, pName, pDes) =>         //TODO no unique page ID to identify it
     val uri = Uri("https://www.fakebook.com/page?") withQuery(F_Page.joinPageString -> "",
                                                               F_Page.leavePageString -> "",
                                                               F_Page.newUserString -> "",
-                                                              F_Page.nameString -> "",
-                                                              F_Page.descriptionString -> "",
+                                                              F_Page.nameString -> pName,
+                                                              F_Page.descriptionString -> pDes,
                                                               //F_Page.changableParameters -> ,
-                                                              F_Page.ownerString -> "")
+                                                              F_Page.ownerString -> userId.toString(16))
     val pipeline = sendReceive ~> unmarshal[F_Page]
     val responseFuture = pipeline {Post(uri)}
 
@@ -328,8 +363,10 @@ def receive = {
 
     }
 
+
+
   //get operations
-  case getUserData(id) =>
+  case getUserData(id) =>             //TODO no unique user id in user object in F_User
     val uri = Uri("https://www.fakebook.com/user?") withQuery(F_User.lastNameString -> "",
                                                               F_User.firstNameString -> "",
                                                               F_User.bioString -> "",
@@ -355,7 +392,29 @@ def receive = {
 
     }
 
-  case getPictureData(id) =>
+
+  case getUserProfile(id) =>
+    val uri = Uri("https://www.fakebook.com/profile?") withQuery( F_UserProfile.profilePictureString -> "",
+                                                                  // F_User.changableParameters -> ,
+                                                                  F_UserProfile.descriptionString -> "")
+    val pipeline = sendReceive ~> unmarshal[F_UserProfile]
+    val responseFuture = pipeline {Get(uri)}
+
+    responseFuture onComplete {
+      case Success(f: F_UserProfile) =>
+        log.info("getUserData successful!!")
+        sender ! userProfileRetrieved(f)
+
+      case Success(somethingUnexpected) =>
+        log.warning("Something unexpected during getUserProfile?")
+
+      case Failure(error) =>
+        log.error(error, "Couldn't run getUserProfile :(")
+
+    }
+
+
+  case getPictureData(id, picId) =>              //TODO picture object doesn't have uniqueID for pic identification
     val uri = Uri("https://www.fakebook.com/picture?") withQuery( F_Picture.ownerString -> id.toString(16),
                                                                   F_Picture.nameString -> "",
                                                                   F_Picture.descriptionString -> "",
@@ -377,8 +436,8 @@ def receive = {
 
     }
 
-  case getAlbumData(id) =>
-    val uri = Uri("https://www.fakebook.com/album?") withQuery( F_Album.ownerString -> id.toString(16),
+  case getAlbumData(userId, albmId) =>
+    val uri = Uri("https://www.fakebook.com/album?") withQuery( F_Album.ownerString -> userId.toString(16),
                                                                 F_Album.nameString -> "",
                                                                 //F_Album.changableParameters ->
                                                                 F_Album.descriptionString -> "")
@@ -398,7 +457,7 @@ def receive = {
 
     }
 
-  case getPost(id) =>
+  case getPost(id, postId) =>
     val uri = Uri("https://www.fakebook.com/post?") withQuery(F_Post.contentsString -> "",
                                                               F_Post.creatorString -> id.toString(16),
                                                               F_Post.locationType -> "",
@@ -406,7 +465,7 @@ def receive = {
                                                               F_Post.locationPage -> "",
                                                               F_Post.locationProfile -> "",
                                                               //F_Post.changableParamaters ->
-                                                              F_Post.locationString -> "")
+                                                              F_Post.locationString -> postId.toString(16))
     val pipeline = sendReceive ~> unmarshal[F_Post]
     val responseFuture = pipeline {Get(uri)}
 
@@ -423,7 +482,7 @@ def receive = {
 
     }
 
-  case getPageData(id) =>
+  case getPageData(id) =>    //TODO no unique page id in page object in F_Page
     val uri = Uri("https://www.fakebook.com/page?") withQuery(F_Page.joinPageString -> "",
                                                               F_Page.leavePageString -> "",
                                                               F_Page.newUserString -> "",
@@ -446,6 +505,8 @@ def receive = {
         log.error(error, "Couldn't run getPageData :(")
 
     }
+
+
 
   //Delete operations
   case deleteUser(id) =>
@@ -474,8 +535,8 @@ def receive = {
 
     }
 
-  case deletePicture(id) =>
-    val uri = Uri("https://www.fakebook.com/picture?") withQuery( F_Picture.ownerString -> id.toString(16),
+  case deletePicture(userId, pId) =>        //TODO no way to identify picture without pic ID
+    val uri = Uri("https://www.fakebook.com/picture?") withQuery( F_Picture.ownerString -> userId.toString(16),
                                                                   F_Picture.nameString -> "",
                                                                   F_Picture.descriptionString -> "",
                                                                   //F_Picture.changableParameters -> ,
@@ -496,8 +557,8 @@ def receive = {
 
     }
 
-  case deleteAlbum(id) =>
-    val uri = Uri("https://www.fakebook.com/album?") withQuery( F_Album.ownerString -> id.toString(16),
+  case deleteAlbum(userId, albmId) =>
+    val uri = Uri("https://www.fakebook.com/album?") withQuery( F_Album.ownerString -> userId.toString(16),
                                                                 F_Album.nameString -> "",
                                                                 //F_Album.changableParameters ->
                                                                 F_Album.descriptionString -> "")
@@ -517,7 +578,7 @@ def receive = {
 
     }
 
-  case deletePost(id) =>
+  case deletePost(id, postId) =>
     val uri = Uri("https://www.fakebook.com/post?") withQuery(F_Post.contentsString -> "",
                                                               F_Post.creatorString -> id.toString(16),
                                                               F_Post.locationType -> "",
@@ -525,7 +586,7 @@ def receive = {
                                                               F_Post.locationPage -> "",
                                                               F_Post.locationProfile -> "",
                                                               //F_Post.changableParamaters ->
-                                                              F_Post.locationString -> "")
+                                                              F_Post.locationString -> postId.toString(16))
     val pipeline = sendReceive ~> unmarshal[F_Post]
     val responseFuture = pipeline {Delete(uri)}
 
@@ -542,7 +603,7 @@ def receive = {
 
     }
 
-  case deletePage(id) =>
+  case deletePage(id) =>        //TODO no user id in F_User objecr
     val uri = Uri("https://www.fakebook.com/page?") withQuery(F_Page.joinPageString -> "",
                                                               F_Page.leavePageString -> "",
                                                               F_Page.newUserString -> "",
@@ -568,14 +629,13 @@ def receive = {
 
 
     //TODO how will the user know whom to send friend request, how will he know he received a request
-    /*
+  //TODO no userID in F_User object, how to send user identifier
+
   //Friend operations
   case sendFriendReq(id1, id2) =>
-    val uri = Uri("https://www.fakebook.com/user/resuest?") withQuery(F_User.ID -> id1.toString(16))  //send user id self and requested users
-  val pipeline = sendReceive ~> unmarshal[F_Page]
-    val responseFuture = pipeline {
-      Put(uri)
-    }
+    val uri = Uri("https://www.fakebook.com/user/resuest?") withQuery()  //send user id self and requested users
+    val pipeline = sendReceive ~> unmarshal[F_Page]
+    val responseFuture = pipeline {Put(uri)}
     responseFuture onComplete {
       case Success(f: F_Page) =>
         log.info("Page creation successful!!")
@@ -590,9 +650,10 @@ def receive = {
     }
 
   case acceptFriendReq(id1, id2) =>
+    //can be done at server as user doesn't have push notification about request
     //do we need this before authentication part??
 
-*/
+
 
 
 }
