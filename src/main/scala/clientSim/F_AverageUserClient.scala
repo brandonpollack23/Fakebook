@@ -6,7 +6,7 @@ import spray.json._
 import spray.httpx.SprayJsonSupport
 
 
-class F_AverageUserClient extends F_BaseClient {
+/*class F_AverageUserClient extends F_BaseClient {
 
   case class simulate()
 
@@ -28,7 +28,7 @@ class F_AverageUserClient extends F_BaseClient {
 
   override def receive ={
 
-    case begin =>
+    /case begin =>
       self ! createUser
 
     case userCreated(res) =>
@@ -43,3 +43,4 @@ class F_AverageUserClient extends F_BaseClient {
   }
 
 }
+*/

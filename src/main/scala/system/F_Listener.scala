@@ -4,11 +4,12 @@ import akka.actor._
 import akka.event.{Logging, LoggingAdapter}
 import akka.util.Timeout
 import spray.can.Http
-import spray.http.HttpRequest
+import spray.http.{HttpResponse, HttpRequest}
 import spray.routing.directives.{DebuggingDirectives, OnCompleteFutureMagnet}
 import spray.routing._
 import spray.http.StatusCodes._
 
+import scala.concurrent.Await
 import scala.concurrent.duration._
 
 import akka.pattern.ask
@@ -43,7 +44,7 @@ object F_Listener {
 }
 
 trait F_ListenerService extends HttpService {
-  implicit def log: LoggingAdapter
+  def log: LoggingAdapter
   def backbone: ActorRef
 
   implicit def executionContext = actorRefFactory.dispatcher
@@ -53,104 +54,108 @@ trait F_ListenerService extends HttpService {
   DebuggingDirectives.logRequestResponse("user-get", Logging.DebugLevel)
 
   //NOTE: All IDs should be sent in HEX
+  //TODO get routes working, now that PUT is all inside a complete we should be closer, perhaps it is right but we dont know yet
   val route: Route = { request =>
-    pathPrefix("user") {
-      path("newuser") {
-        put { req =>
-          genericPut(CreateUser(req.request))
+    pathPrefix("users") { req =>
+      log.debug("user path!")
+      path("newuser") { req2 =>
+        put {
+          detach() {
+            complete(genericPut(CreateUser(req2.request)))
+          }
         }
       } ~
-        get { req =>
-          genericGet(req, GetUserInfo)
+      get {
+        genericGet(req, GetUserInfo)
+      } ~
+      post {
+        pathPrefix("request") { req2 =>
+          genericPost(req2, RequestFriend)
         } ~
-        post { req =>
-          pathPrefix("request") { req2 =>
-            genericPost(req2, RequestFriend)
-          } ~
-            pathPrefix("remove") { req2 =>
-              genericPost(req2, RemoveFriend)
-            }
-          genericPost(req, HandleFriendRequest)
-        } ~
-        delete { req =>
-          genericDelete(req, DeleteUser)
-        }
+          pathPrefix("remove") { req2 =>
+            genericPost(req2, RemoveFriend)
+          }
+        genericPost(req, HandleFriendRequest)
+      } ~
+      delete {
+        genericDelete(req, DeleteUser)
+      }
     } ~
-      pathPrefix("data") {
-        get { req =>
-          getImage(req) //URIs for actual data like pictures
-        } ~
-          path("uploadimage") {
-            put { req =>
-              genericPut(PutImage(req.request))
-            }
-          }
+    pathPrefix("data") { req =>
+      get {
+        getImage(req) //URIs for actual data like pictures
       } ~
-      pathPrefix("page") {
-        get { req =>
-          genericGet(req, GetPageInfo)
-        } ~
-          post { req =>
-            genericPost(req, UpdatePageData)
-          } ~
-          delete { req =>
-            genericDelete(req, DeletePage)
-          }
-        path("newpage") {
-          put { req =>
-            genericPut(CreatePage(req.request))
-          }
-        }
-      } ~
-      pathPrefix("profile") {
-        get { req =>
-          genericGet(req, GetProfileInfo)
-        } ~ //no need for "createprofile" they are created with the user and can be accessed through the JSON returned with that creation
-          post { req =>
-            genericPost(req, UpdateProfileData)
-          } //no need to delete profile, deleted with user
-      } ~
-      pathPrefix("picture") {
-        get { req =>
-          genericGet(req, GetPictureInfo)
-        } ~ //same as for profile, when you upload an image the picture JSON is created
-          post { req =>
-            genericPost(req, UpdateImageData)
-          } ~
-          delete { req =>
-            genericDelete(req, DeletePicture)
-          }
-      } ~
-      pathPrefix("post") {
-        get { req =>
-          genericGet(req, GetPostInfo)
-        } ~
-          post { req =>
-            genericPost(req, UpdatePostData)
-          } ~
-          put { req =>
-            genericPut(CreatePost(req.request))
-          } ~
-          delete { req =>
-            genericDelete(req, DeletePost)
-          }
-      } ~
-      pathPrefix("album") {
-        get { req =>
-          genericGet(req, GetAlbumInfo)
-        } ~
-          post { req =>
-            genericPost(req, UpdateAlbumData)
-          } ~
-          delete { req =>
-            genericDelete(req, DeleteAlbum)
-          }
-        path("createalbum") {
-          put { req =>
-            genericPut(CreateAlbum(req.request))
-          }
+      path("uploadimage") { req2 =>
+        put {
+          complete(genericPut(PutImage(req2.request)))
         }
       }
+    } ~
+    pathPrefix("page") { req =>
+      get {
+        genericGet(req, GetPageInfo)
+      } ~
+      post {
+        genericPost(req, UpdatePageData)
+      } ~
+      delete {
+        genericDelete(req, DeletePage)
+      }
+      path("newpage") { req =>
+        put {
+          complete(genericPut(CreatePage(req.request)))
+        }
+      }
+    } ~
+    pathPrefix("profile") { req =>
+      get {
+        genericGet(req, GetProfileInfo)
+      } ~ //no need for "createprofile" they are created with the user and can be accessed through the JSON returned with that creation
+      post {
+        genericPost(req, UpdateProfileData)
+      } //no need to delete profile, deleted with user
+    } ~
+    pathPrefix("picture") { req =>
+      get {
+        genericGet(req, GetPictureInfo)
+      } ~ //same as for profile, when you upload an image the picture JSON is created
+      post {
+        genericPost(req, UpdateImageData)
+      } ~
+      delete {
+        genericDelete(req, DeletePicture)
+      }
+    } ~
+    pathPrefix("post") { req =>
+      get {
+        genericGet(req, GetPostInfo)
+      } ~
+      post {
+        genericPost(req, UpdatePostData)
+      } ~
+      put {
+        complete(genericPut(CreatePost(req.request)))
+      } ~
+      delete {
+        genericDelete(req, DeletePost)
+      }
+    } ~
+    pathPrefix("album") { req =>
+      get {
+        genericGet(req, GetAlbumInfo)
+      } ~
+      post {
+        genericPost(req, UpdateAlbumData)
+      } ~
+      delete {
+        genericDelete(req, DeleteAlbum)
+      }
+      path("createalbum") { req2 =>
+        put {
+          complete(genericPut(CreateAlbum(req2.request)))
+        }
+      }
+    }
   }
 
   /**
@@ -180,7 +185,10 @@ trait F_ListenerService extends HttpService {
           complete(BadRequest, "Numbers are formatted incorrectly")
       }
     }
-    else reject
+    else {
+      log.debug("uri not formatted correctly for a get")
+      reject
+    }
   }
 
   /**
@@ -209,7 +217,10 @@ trait F_ListenerService extends HttpService {
           complete(BadRequest, "Numbers are formatted incorrectly")
       }
     }
-    else reject
+    else {
+      log.debug("uri not formatted correctly for a post")
+      reject
+    }
   }
 
   /**
@@ -218,13 +229,13 @@ trait F_ListenerService extends HttpService {
    * @return
    */
   def genericPut(message: PutInfo) = {
-    onComplete(OnCompleteFutureMagnet((backbone ? message).mapTo[String])) {
+    Await.ready((backbone ? message).mapTo[String], 5 seconds).value.get match {
       case Success(newEntityJson) =>
         log.info("put completed successfully: " + message)
-        complete(newEntityJson)
+        HttpResponse(OK, newEntityJson)
       case Failure(ex) =>
         log.error(ex, "put failed: " + message)
-        complete(InternalServerError, "Error putting entity: " + ex.getMessage)
+        HttpResponse(InternalServerError, "Error putting entity: " + ex.getMessage)
     }
   }
 
@@ -254,7 +265,10 @@ trait F_ListenerService extends HttpService {
           complete(BadRequest, "Numbers are formatted incorrectly")
       }
     }
-    else reject
+    else {
+      log.debug("uri not formatted correctly for delete")
+      reject
+    }
   }
 
   /**
