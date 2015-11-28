@@ -11,7 +11,7 @@ import akka.event.LoggingAdapter
 import akka.testkit.{TestKitBase, ImplicitSender, TestKit}
 import graphnodes.F_User
 import org.scalatest.{WordSpec, BeforeAndAfterAll, WordSpecLike}
-import spray.http.Uri
+import spray.http.{HttpHeaders, HttpHeader, Uri}
 import system.F_BackBone.CreateUser
 import system.{F_ListenerService}
 
@@ -24,11 +24,12 @@ class FakebookRoutingTests extends WordSpec with ScalatestRouteTest with TestKit
     TestKit.shutdownActorSystem(system)
   }
 
+  implicit val defaultHostInfo = DefaultHostInfo(HttpHeaders.Host("www.fakebook.com"), false)
+
   "The FakeBook route" when {
     "Running route to create a user with PUT" should {
       "forward a message to the backbone to create a new user" in {
-        log.info("testing " + createUserSuccessRequest)
-        createUserSuccessRequest ~> route ~> check {
+        createUserSuccessRequest ~> logRequest("reqresp"){route} ~> check {
           expectMsg(CreateUser(createUserSuccessRequest))
         }
       }

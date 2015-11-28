@@ -1,11 +1,11 @@
 package system
 
 import akka.actor._
-import akka.event.{Logging, LoggingAdapter}
+import akka.event.{LoggingAdapter}
 import akka.util.Timeout
 import spray.can.Http
 import spray.http.{HttpResponse, HttpRequest}
-import spray.routing.directives.{DebuggingDirectives, OnCompleteFutureMagnet}
+import spray.routing.directives.{OnCompleteFutureMagnet}
 import spray.routing._
 import spray.http.StatusCodes._
 
@@ -51,13 +51,10 @@ trait F_ListenerService extends HttpService {
 
   implicit val timeout = Timeout(5 seconds)
 
-  DebuggingDirectives.logRequestResponse("user-get", Logging.DebugLevel)
-
   //NOTE: All IDs should be sent in HEX
   //TODO get routes working, now that PUT is all inside a complete we should be closer, perhaps it is right but we dont know yet
-  val route: Route = { request =>
+  val route: Route = {
     pathPrefix("users") { req =>
-      log.debug("user path!")
       path("newuser") { req2 =>
         put {
           detach() {
@@ -72,9 +69,9 @@ trait F_ListenerService extends HttpService {
         pathPrefix("request") { req2 =>
           genericPost(req2, RequestFriend)
         } ~
-          pathPrefix("remove") { req2 =>
-            genericPost(req2, RemoveFriend)
-          }
+        pathPrefix("remove") { req2 =>
+          genericPost(req2, RemoveFriend)
+        }
         genericPost(req, HandleFriendRequest)
       } ~
       delete {
@@ -186,7 +183,7 @@ trait F_ListenerService extends HttpService {
       }
     }
     else {
-      log.debug("uri not formatted correctly for a get")
+      //log.debug("uri not formatted correctly for a get")
       reject
     }
   }
@@ -218,7 +215,7 @@ trait F_ListenerService extends HttpService {
       }
     }
     else {
-      log.debug("uri not formatted correctly for a post")
+      //log.debug("uri not formatted correctly for a post")
       reject
     }
   }
@@ -266,7 +263,7 @@ trait F_ListenerService extends HttpService {
       }
     }
     else {
-      log.debug("uri not formatted correctly for delete")
+      //log.debug("uri not formatted correctly for delete")
       reject
     }
   }
