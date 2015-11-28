@@ -14,23 +14,29 @@ package clientSim
 
 import graphnodes._
 import akka.actor._
+import akka.util.Timeout
 import akka.actor.Actor
 import akka.actor.ActorSystem
 import spray.http._
 import spray.client.pipelining._
 import spray.json.AdditionalFormats
 import spray.httpx.SprayJsonSupport
+import spray.client.pipelining.sendReceive
 import scala.util.{Success, Failure}
 import system.jsonFiles.MyJsonProtocol._
+import scala.concurrent.duration._
 import java.text.SimpleDateFormat
 import java.util.Date
+import MatchClasses._
+
+
 
 class F_BaseClient extends Actor with ActorLogging with SprayJsonSupport with AdditionalFormats
 {
 
 
-  log.debug("Starting client side logs\n")
-
+  log.debug("BaseClient logging started")
+/*
   case class createUser(fname:String, lName:String, bio:String, age:Int, dob:Date)
   case class createPost(posterId: BigInt, content:String,locationType:String, locationId : BigInt)
   case class createPage(userId : BigInt, pName:String, pDes:String)
@@ -94,9 +100,10 @@ class F_BaseClient extends Actor with ActorLogging with SprayJsonSupport with Ad
   case class friendRequestReceived()
   case class friendRequestAccepted()
   case class friendDeleted()
-
+*/
   implicit val system = ActorSystem()
   import system.dispatcher
+  implicit val requestTimeout = Timeout(5 seconds)
   val dateFormatter = new SimpleDateFormat("'M'MM'D'dd'Y'yyyy")
 
 def receive = {
@@ -117,6 +124,7 @@ def receive = {
 
     //val pipeline: HttpRequest => Future[HttpResponse] = sendReceive
     // val response: Future[HttpResponse] = pipeline(Get(uri))
+    log.info("=>> createUser sending request...")
     val pipeline = sendReceive ~> unmarshal[F_User]
     val responseFuture = pipeline {Put(uri)}
     responseFuture onComplete {
@@ -141,6 +149,7 @@ def receive = {
                                                                   F_Post.locationProfile -> "",
                                                                   //F_Post.changableParamaters -> List(" "),
                                                                   F_Post.locationString -> locationId.toString())
+    log.info("=>> createPost sending request...")
     val pipeline = sendReceive ~> unmarshal[F_Post]
     val responseFuture = pipeline {Put(uri)}
     responseFuture onComplete {
@@ -164,6 +173,7 @@ def receive = {
                                                                   F_Page.descriptionString -> pDes,
                                                                   //F_Page.changableParameters -> ,
                                                                   F_Page.ownerString -> userId.toString(16))
+    log.info("=>> createPage sending request...")
     val pipeline = sendReceive ~> unmarshal[F_Page]
     val responseFuture = pipeline {Put(uri)}
     responseFuture onComplete {
@@ -184,6 +194,7 @@ def receive = {
                                                                       F_Album.nameString -> albmName,
                                                                       //F_Album.changableParameters -> ,
                                                                       F_Album.descriptionString -> albmDes)
+    log.info("=>> createAlbum sending request...")
     val pipeline = sendReceive ~> unmarshal[F_Album]
     val responseFuture = pipeline {Put(uri)}
     responseFuture onComplete {
@@ -206,6 +217,7 @@ def receive = {
                                                                           //F_Picture.changableParameters -> ,
                                                                           F_Picture.albumString -> albumId.toString(16))
 
+    log.info("=>> uploadPicture, sending request...")
     val pipeline = sendReceive ~> unmarshal[F_Picture]
     val responseFuture = pipeline {Put(uri)}
     responseFuture onComplete {
@@ -234,6 +246,7 @@ def receive = {
                                                                       F_User.friendRequestString -> "",
                                                                       F_User.acceptFriendString -> "",
                                                                       F_User.friendRemoveString -> "")
+    log.info("=>> updateUserData, sending request...")
     val pipeline = sendReceive ~> unmarshal[F_User]
     val responseFuture = pipeline {Post(uri)}
     responseFuture onComplete {
@@ -254,6 +267,7 @@ def receive = {
     val uri = Uri("https://www.fakebook.com/profile?") withQuery( F_UserProfile.profilePictureString -> "",
                                                                   // F_User.changableParameters -> ,
                                                                   F_UserProfile.descriptionString -> des)
+    log.info("=>> updateUserProfile sending request...")
     val pipeline = sendReceive ~> unmarshal[F_UserProfile]
     val responseFuture = pipeline {Post(uri)}
 
@@ -278,6 +292,7 @@ def receive = {
                                                                   //F_Picture.changableParameters -> ,
                                                                   F_Picture.albumString -> "")
 
+    log.info("=>> createPictureData, sending request...")
     val pipeline = sendReceive ~> unmarshal[F_Picture]
     val responseFuture = pipeline {Post(uri)}
     responseFuture onComplete {
@@ -298,6 +313,7 @@ def receive = {
                                                                 F_Album.nameString -> albmName,
                                                                 //F_Album.changableParameters ->
                                                                 F_Album.descriptionString -> albmDes)
+    log.info("=>> updateAlbumData, sending request...")
     val pipeline = sendReceive ~> unmarshal[F_Album]
     val responseFuture = pipeline {Post(uri)}
 
@@ -323,6 +339,7 @@ def receive = {
                                                               F_Post.locationProfile -> "",
                                                               //F_Post.changableParamaters ->
                                                               F_Post.locationString -> postId.toString(16))
+    log.info("=>> updatePost sending request...")
     val pipeline = sendReceive ~> unmarshal[F_Post]
     val responseFuture = pipeline {Post(uri)}
 
@@ -347,6 +364,7 @@ def receive = {
                                                               F_Page.descriptionString -> pDes,
                                                               //F_Page.changableParameters -> ,
                                                               F_Page.ownerString -> userId.toString(16))
+    log.info("=>> updatePageData sending request...")
     val pipeline = sendReceive ~> unmarshal[F_Page]
     val responseFuture = pipeline {Post(uri)}
 
@@ -376,6 +394,7 @@ def receive = {
                                                               F_User.friendRequestString -> "",
                                                               F_User.acceptFriendString -> "",
                                                               F_User.friendRemoveString -> "")
+    log.info("=>> getUserData sending request...")
     val pipeline = sendReceive ~> unmarshal[F_User]
     val responseFuture = pipeline {Get(uri)}
 
@@ -397,6 +416,7 @@ def receive = {
     val uri = Uri("https://www.fakebook.com/profile?") withQuery( F_UserProfile.profilePictureString -> "",
                                                                   // F_User.changableParameters -> ,
                                                                   F_UserProfile.descriptionString -> "")
+    log.info("=>> getUserProfile sending request...")
     val pipeline = sendReceive ~> unmarshal[F_UserProfile]
     val responseFuture = pipeline {Get(uri)}
 
@@ -420,6 +440,7 @@ def receive = {
                                                                   F_Picture.descriptionString -> "",
                                                                   //F_Picture.changableParameters -> ,
                                                                   F_Picture.albumString -> "")
+    log.info("=>> getPictureData sending request...")
     val pipeline = sendReceive ~> unmarshal[F_Picture]
     val responseFuture = pipeline {Get(uri)}
 
@@ -441,6 +462,7 @@ def receive = {
                                                                 F_Album.nameString -> "",
                                                                 //F_Album.changableParameters ->
                                                                 F_Album.descriptionString -> "")
+    log.info("=>> getAlbumData, sending request...")
     val pipeline = sendReceive ~> unmarshal[F_Album]
     val responseFuture = pipeline {Get(uri)}
 
@@ -466,6 +488,7 @@ def receive = {
                                                               F_Post.locationProfile -> "",
                                                               //F_Post.changableParamaters ->
                                                               F_Post.locationString -> postId.toString(16))
+    log.info("=>> getPost sending request...")
     val pipeline = sendReceive ~> unmarshal[F_Post]
     val responseFuture = pipeline {Get(uri)}
 
@@ -490,6 +513,7 @@ def receive = {
                                                               F_Page.descriptionString -> "",
                                                               //F_Page.changableParameters -> ,
                                                               F_Page.ownerString -> "")
+    log.info("=>> getPageData, sending request...")
     val pipeline = sendReceive ~> unmarshal[F_Page]
     val responseFuture = pipeline {Get(uri)}
 
@@ -519,6 +543,7 @@ def receive = {
                                                               F_User.friendRequestString -> "",
                                                               F_User.acceptFriendString -> "",
                                                               F_User.friendRemoveString -> "")
+    log.info("=>> deleteUser, sending request...")
     val pipeline = sendReceive ~> unmarshal[F_User]
     val responseFuture = pipeline {Delete(uri)}
 
@@ -541,6 +566,7 @@ def receive = {
                                                                   F_Picture.descriptionString -> "",
                                                                   //F_Picture.changableParameters -> ,
                                                                   F_Picture.albumString -> "")
+    log.info("=>> deletePicture sending request...")
     val pipeline = sendReceive ~> unmarshal[F_Picture]
     val responseFuture = pipeline {Delete(uri)}
 
@@ -562,6 +588,7 @@ def receive = {
                                                                 F_Album.nameString -> "",
                                                                 //F_Album.changableParameters ->
                                                                 F_Album.descriptionString -> "")
+    log.info("=>> deleteAlbum sending request...")
     val pipeline = sendReceive ~> unmarshal[F_Album]
     val responseFuture = pipeline {Delete(uri)}
 
@@ -587,6 +614,7 @@ def receive = {
                                                               F_Post.locationProfile -> "",
                                                               //F_Post.changableParamaters ->
                                                               F_Post.locationString -> postId.toString(16))
+    log.info("=>> deletePost sending request...")
     val pipeline = sendReceive ~> unmarshal[F_Post]
     val responseFuture = pipeline {Delete(uri)}
 
@@ -611,6 +639,7 @@ def receive = {
                                                               F_Page.descriptionString -> "",
                                                               //F_Page.changableParameters -> ,
                                                               F_Page.ownerString -> "")
+    log.info("=>> deletePage, sending request...")
     val pipeline = sendReceive ~> unmarshal[F_Page]
     val responseFuture = pipeline {Delete(uri)}
 
@@ -634,6 +663,7 @@ def receive = {
   //Friend operations
   case sendFriendReq(id1, id2) =>
     val uri = Uri("https://www.fakebook.com/user/resuest?") withQuery()  //send user id self and requested users
+    log.info("=>> sendFriendRequest, sending request...")
     val pipeline = sendReceive ~> unmarshal[F_Page]
     val responseFuture = pipeline {Put(uri)}
     responseFuture onComplete {
@@ -654,7 +684,8 @@ def receive = {
     //do we need this before authentication part??
 
 
-
+  case _ =>
+    log.info("case with no match received at BaseClient")
 
 }
 

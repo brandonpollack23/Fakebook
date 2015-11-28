@@ -2,7 +2,7 @@ package clientSim
 
 import java.text.SimpleDateFormat
 import java.util.Date
-
+import MatchClasses._
 import akka.actor._
 import graphnodes._
 import scala.util.Random
@@ -12,12 +12,14 @@ import scala.concurrent.ExecutionContext.Implicits.global
 //import spray.httpx.SprayJsonSupport
 //TODO there is no unique ID in user profile to pass
 //TODO way to know a post created is on a profile or a page by its return type
+//case class Begin()
+//case class Simulate()
+//case class PerformAction()
 
-class F_AverageUserClient extends F_BaseClient {
 
-  case class begin()
-  case class simulate()
-  case class performAction()
+class F_AverageUserClient(baseRef : ActorRef) extends Actor with ActorLogging{
+
+  log.info("=> *AverageClient* Logging Started")
 
   //parameters for User
   var firstName = "Ali"
@@ -69,59 +71,64 @@ class F_AverageUserClient extends F_BaseClient {
   var profile_ME =  F_UserProfile(null, null, null, null, null, null)
 
 
-  override def receive ={
+   def receive ={
 
-    case `begin` =>
-      self ! createUser(firstName, lastName, bio, age, dobDate)
+    case Begin =>
+      log.info("=> *Begin* match, requesting createUser")
+      baseRef ! createUser(firstName, lastName, bio, age, dobDate)
 
     case userCreated(res) =>
+      log.info("=> User creation request complete at end user")
       user_ME = res
-      self ! getUserProfile(user_ME.userID)
+      baseRef ! getUserProfile(user_ME.userID)
 
     case userProfileRetrieved(res) =>
+      log.info("=> UserProfile retrieved successfully")
       profile_ME = res
-      self ! simulate
+      baseRef ! Simulate
 
-    case `simulate` =>
+    case Simulate =>
+      log.info("=> Simulation started")
       val system = ActorSystem("MySystem")
-      system.scheduler.schedule(0 milliseconds, 1000 milliseconds )(self ! performAction)
+      system.scheduler.schedule(0 milliseconds, 1000 milliseconds )(self ! PerformAction)
 
-    case `performAction` =>
+    case PerformAction =>
+      log.info("=> PerformAction !!")
       val x = Random.nextInt(100)
 
       if(x<30)  //do some post activity  30 percent
       {
         val z = Random.nextInt(100)
         if (z < 25) {
-          self ! createPost(user_ME.userID, postContent, locationType1, profile_ME.profileID)
+          baseRef ! createPost(user_ME.userID, postContent, locationType1, profile_ME.profileID)
         }
         if(z>=25 && z<50) {
           if (myPage.ownerID != null)
-            self ! createPost(user_ME.userID, postContent, locationType2, myPage.ownerID)
+            baseRef ! createPost(user_ME.userID, postContent, locationType2, myPage.ownerID)
         }
         if (z >= 50 && z < 65) {
           if (profile_ME.posts.nonEmpty)
-            self ! getPost(user_ME.userID, profile_ME.posts(Random.nextInt(profile_ME.posts.length))) //from profile
+            baseRef ! getPost(user_ME.userID, profile_ME.posts(Random.nextInt(profile_ME.posts.length))) //from profile
         }
         if(z >= 65 && z<75) {
           if (myPage.posts.nonEmpty)
-            self ! getPost(user_ME.userID, myPage.posts(Random.nextInt(myPage.posts.length))) //from page
+            baseRef ! getPost(user_ME.userID, myPage.posts(Random.nextInt(myPage.posts.length))) //from page
         }
         if (z >= 75 && z < 85) {
           if (profile_ME.posts.nonEmpty)
-            self ! updatePost(user_ME.userID, profile_ME.posts(Random.nextInt(profile_ME.posts.length))) //from profile
+            baseRef ! updatePost(user_ME.userID, profile_ME.posts(Random.nextInt(profile_ME.posts.length))) //from profile
         }
           if(z>=85 && z< 90){
             if (myPage.posts.nonEmpty)
-              self ! updatePost(user_ME.userID, myPage.posts(Random.nextInt(myPage.posts.length))) //from page
+              baseRef ! updatePost(user_ME.userID, myPage.posts(Random.nextInt(myPage.posts.length))) //from page
           }
         if(z>=90 && z<= 95) {
           if (profile_ME.posts.nonEmpty)
-            self ! deletePost(user_ME.userID, profile_ME.posts(Random.nextInt(profile_ME.posts.length))) //from profile
+            baseRef ! deletePost(user_ME.userID, profile_ME.posts(Random.nextInt(profile_ME.posts.length))) //from profile
         }
         else{
           if (myPage.posts.nonEmpty)
-            self ! deletePost(user_ME.userID, myPage.posts(Random.nextInt(myPage.posts.length))) //from page
+            baseRef ! deletePost(user_ME.userID, myPage.posts(Random.nextInt(myPage.posts.length))) //from page
         }
       }
 
@@ -134,40 +141,40 @@ class F_AverageUserClient extends F_BaseClient {
           val z = Random.nextInt(100)
           if (z <= 50) {
             val indx = Random.nextInt(profile_ME.albumIDs.length)
-            self ! uploadPicture(pName, pDes, profile_ME.albumIDs(indx), user_ME.userID)
+            baseRef ! uploadPicture(pName, pDes, profile_ME.albumIDs(indx), user_ME.userID)
           }
           if (z > 50 && z < 75)
             if(myPics.nonEmpty){
             val indx = Random.nextInt(myPics.length)
-            self ! getPictureData(user_ME.userID, myPics(indx))
+            baseRef ! getPictureData(user_ME.userID, myPics(indx))
             }
           if (z >= 75 && z < 90)
             if(myPics.nonEmpty) {
               val indx = Random.nextInt(myPics.length)
-              self ! updatePictureData(pName1, pDes1, user_ME.userID, myPics(indx))
+              baseRef ! updatePictureData(pName1, pDes1, user_ME.userID, myPics(indx))
             }
           else
             if(myPics.nonEmpty) {
               val indx = Random.nextInt(myPics.length)
-              self ! deletePicture(user_ME.userID, myPics(indx))
+              baseRef ! deletePicture(user_ME.userID, myPics(indx))
             }
         }
         else {
           val z = Random.nextInt(100)
           if (z <= 50)
-            self ! createAlbum(user_ME.userID, albmName, albmDes)
+            baseRef ! createAlbum(user_ME.userID, albmName, albmDes)
           if (z > 50 && z < 75) {
             val indx = Random.nextInt(profile_ME.albumIDs.length)
-            self ! getAlbumData(user_ME.userID, profile_ME.albumIDs(indx))
+            baseRef ! getAlbumData(user_ME.userID, profile_ME.albumIDs(indx))
           }
           if (z >= 75 && z < 90) {
             val indx = Random.nextInt(profile_ME.albumIDs.length)
-            self ! updateAlbumData(user_ME.userID, profile_ME.albumIDs(indx), albmName1, albmDes1 )
+            baseRef ! updateAlbumData(user_ME.userID, profile_ME.albumIDs(indx), albmName1, albmDes1 )
           }
           else {
             val indx = Random.nextInt(profile_ME.albumIDs.length)
            // if(indx!=0)
-           // self ! deleteAlbum(user_ME.userID, profile_ME.albumIDs(indx))  //unable to update profile_ME album list
+           // baseRef ! deleteAlbum(user_ME.userID, profile_ME.albumIDs(indx))  //unable to update profile_ME album list
           }
           }
       }
@@ -178,13 +185,13 @@ class F_AverageUserClient extends F_BaseClient {
       {
         val z = Random.nextInt(100)
         if (z <= 25)
-          self ! updateUserData(user_ME.userID, firstName1, lastName1, bio1)
+          baseRef ! updateUserData(user_ME.userID, firstName1, lastName1, bio1)
         if (z > 25 && z< 50)
-          self ! getUserData(user_ME.userID)
+          baseRef ! getUserData(user_ME.userID)
         if(z>50 && z< 75)
-          self ! updateUserProfile(profile_ME.profileID, description1)
+          baseRef ! updateUserProfile(profile_ME.profileID, description1)
         else
-          self ! getUserProfile(profile_ME.profileID)
+          baseRef ! getUserProfile(profile_ME.profileID)
       }
 
 
@@ -192,13 +199,13 @@ class F_AverageUserClient extends F_BaseClient {
       {
         val z = Random.nextInt(100)
         if (z <= 50)
-          self ! createPage(user_ME.userID, pageName, pageDes)
+          baseRef ! createPage(user_ME.userID, pageName, pageDes)
         if (z > 50 && z < 75)
-          self ! getPageData(user_ME.userID)
+          baseRef ! getPageData(user_ME.userID)
         if (z >= 75 && z < 90)
-          self ! updatePageData(user_ME.userID, pageName1, pageDes1)
+          baseRef ! updatePageData(user_ME.userID, pageName1, pageDes1)
         else
-          self ! deletePage(user_ME.userID)
+          baseRef ! deletePage(user_ME.userID)
 
       }
       if(x>=90)//do something about friendList - 10%
@@ -209,84 +216,84 @@ class F_AverageUserClient extends F_BaseClient {
 
     case postCreated(res,locationType) =>
       if(locationType.equalsIgnoreCase("profile")){
-        log.info("created profile post received at end user")
+        log.info("=> Created profile post received at end user")
         myProfPosts ::= res.postID
       }
 
       if(locationType.equalsIgnoreCase("page")) {
-       log.info("created page post received at end user")
+       log.info("=> Created page post received at end user")
         myPagePosts ::= res.postID
       }
 
     case postEdited(res) =>
-      log.info("Edited post received at end user")
+      log.info("=> Edited post received at end user")
 
     case postRetrieved(res) =>
-      log.info("requested post received at end user")
+      log.info("=> Requested post received at end user")
 
     case postDeleted(res) =>
-      log.info("postDeleted received at end user")
+      log.info("=> postDelete comletion received at end user")
 
 
     case userEdited(res) =>
-      log.info("User Data received at end user")
+      log.info("=> User Data received at end user")
       user_ME = res
 
     case userRetrieved(res) =>
-      log.info("User data received at end user")
+      log.info("=> User data received at end user")
 
     case profileEdited(res) =>
-      log.info("profile edit result received at end user")
+      log.info("=> Profile edit result received at end user")
       profile_ME = res
 
     case profileRetrieved(res) =>
-      log.info("get user Profile complete, response received at end user")
+      log.info("=> Get user Profile complete, response received at end user")
 
 
     case pictureUploaded(res) =>
-      log.info("picture upload complete, response received at end user")
+      log.info("=> Picture upload complete, response received at end user")
       myPics ::= res.pictureID
 
     case pictureEdited(res) =>
-      log.info("picture edit complete, response received at end user")
+      log.info("=> Picture edit complete, response received at end user")
 
 
     case pictureRetrieved(res) =>
-      log.info("requested picture received at end user")
+      log.info("=> Requested picture received at end user")
 
     case pictureDeleted(res) =>
-      log.info("picture Delete request completion received at end user")
+      log.info("=> Picture Delete request completion received at end user")
       myPics = myPics.filter(_!=res.pictureID)
 
 
     case albumCreated(res) =>
-      log.info("create album response received at end user")
+      log.info("=> Create album response received at end user")
       myAlbums ::= res.id
-      log.info("new album added to profile at end user")
+      log.info("=> New album added to profile at end user")
 
     case albumEdited(res) =>
-      log.info("album edit successful, response received at end user")
+      log.info("=> Album edit successful, response received at end user")
 
     case albumRetrieved(res) =>
-      log.info("retrieve album successful, response received at end user")
+      log.info("=> Retrieve album successful, response received at end user")
 
     case albumDeleted(res) =>
-      log.info("album delete successful, response received at end user")
+      log.info("=> Album delete successful, response received at end user")
       //profile_ME.albumIDs = profile_ME.albumIDs.filter(_!=res.id)
-      log.info("profile edited with deleted album retracted")
+      log.info("=> Profile edited with deleted album retracted")
 
     case pageCreated(res) =>
-      log.info("page created, completion received at end user")
+      log.info("=> Page created, completion received at end user")
       myPages ::= res
 
     case pageEdited(res) =>
-      log.info("page edited, completion received at end user")
+      log.info("=> Page edited, completion received at end user")
 
     case pageRetrieved(res) =>
-      log.info("page retrieved, completion received at end user")
+      log.info("=> Page retrieved, completion received at end user")
 
     case pageDeleted(res) =>
-      log.info("page deleted, completion received at user end")
+      log.info("=> Page deleted, completion received at user end")
 
 
   }
