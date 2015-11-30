@@ -10,13 +10,15 @@ import graphnodes.F_User
 import graphnodes.F_User._
 import spray.http.{HttpRequest, Uri}
 import system.F_BackBone._
-import system.jsonFiles.F_UserJSON
 
 import scala.concurrent.{Future, Await}
 import scala.concurrent.duration._
 
 import scala.language.postfixOps
 import scala.xml.MalformedAttributeException
+
+import spray.json._
+import system.MyJsonProtocol._
 
 class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
   import F_UserHandler._
@@ -34,7 +36,7 @@ class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
       val replyTo = sender
 
       users.get(id) match {
-        case Some(user) => Future(F_UserJSON.getJSON(user)) pipeTo replyTo
+        case Some(user) => Future(user.toJson.compactPrint) pipeTo replyTo
         case None => replyTo ! noSuchUserFailure(id)
       }
 
@@ -101,7 +103,7 @@ class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
       val newUser = (F_User.apply _).tupled(getAllComponents(id, params))
       users.put(id, newUser)
       val replyTo = sender
-      Future(F_UserJSON.getJSON(newUser)) pipeTo replyTo
+      Future(newUser.toJson.compactPrint) pipeTo replyTo
     } catch {
       case ex: Exception =>
         log.error("User error: " + ex + " " + ex.getCause)
@@ -148,7 +150,7 @@ class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
 
       val replyTo = sender
 
-      Future(F_UserJSON.getJSON(updatedUser)) pipeTo replyTo
+      Future(updatedUser.toJson.compactPrint) pipeTo replyTo
     } catch {
       case ex: Exception =>
         sender ! actor.Status.Failure(ex)

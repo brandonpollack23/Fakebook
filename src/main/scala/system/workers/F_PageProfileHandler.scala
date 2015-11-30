@@ -9,10 +9,13 @@ import akka.util.Timeout
 import graphnodes.{F_Post, F_UserProfile, F_Page}
 import spray.http.{Uri, HttpRequest}
 import system.F_BackBone._
-import system.jsonFiles.{F_PostJSON, F_PageJSON, F_ProfileJSON}
+import system.MyJsonProtocol
 
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
+
+import spray.json._
+import MyJsonProtocol._
 
 import language.postfixOps
 
@@ -31,7 +34,7 @@ class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
       val replyTo = sender
 
       profiles.get(id) match {
-        case Some(prof) => Future(F_ProfileJSON.getJSON(prof)) pipeTo replyTo
+        case Some(prof) => Future(prof.toJson.compactPrint) pipeTo replyTo
         case None => replyTo ! noSuchProfileFailure(id)
       }
 
@@ -39,7 +42,7 @@ class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
       val replyTo = sender
 
       pages.get(id) match {
-        case Some(page) => Future(F_PageJSON.getJSON(page)) pipeTo replyTo
+        case Some(page) => Future(page.toJson.compactPrint) pipeTo replyTo
         case None => replyTo ! noSuchPageFailure(id)
       }
 
@@ -47,7 +50,7 @@ class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
       val replyTo = sender
 
       posts.get(id) match {
-        case Some(post) => Future(F_PostJSON.getJSON(post)) pipeTo replyTo
+        case Some(post) => Future(post.toJson.compactPrint) pipeTo replyTo
         case None => replyTo ! noSuchPostFailure(id)
       }
 
@@ -107,7 +110,7 @@ class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
       val newPage = (F_Page.apply _).tupled(getAllComponents)
       pages.put(pageID, newPage)
       val replyTo = sender
-      Future(F_PageJSON.getJSON(newPage)) pipeTo replyTo
+      Future(newPage.toJson.compactPrint) pipeTo replyTo
     } catch {
       case ex: Exception =>
         sender ! actor.Status.Failure(ex)
@@ -133,7 +136,7 @@ class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
       val newPost = (F_Post.apply _).tupled(getAllComponents)
       val replyTo = sender
       posts.put(postID, newPost)
-      Future(F_PostJSON.getJSON(newPost)) pipeTo replyTo
+      Future(newPost.toJson.compactPrint) pipeTo replyTo
     } catch {
       case ex: Exception =>
         sender ! actor.Status.Failure(ex)
@@ -177,7 +180,7 @@ class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
 
       val replyTo = sender
 
-      Future(F_PageJSON.getJSON(updatedPage)) pipeTo replyTo
+      Future(updatedPage.toJson.compactPrint) pipeTo replyTo
     } catch {
       case ex: Exception =>
         sender ! actor.Status.Failure(ex)
@@ -214,7 +217,7 @@ class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
 
       val replyTo = sender
 
-      Future(F_ProfileJSON.getJSON(updatedProfile)) pipeTo replyTo
+      Future(updatedProfile.toJson.compactPrint) pipeTo replyTo
     } catch {
       case ex: Exception =>
         sender ! actor.Status.Failure(ex)
@@ -250,7 +253,7 @@ class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
 
       val replyTo = sender
 
-      Future(F_PostJSON.getJSON(updatedPost)) pipeTo replyTo
+      Future(updatedPost.toJson.compactPrint) pipeTo replyTo
     } catch {
       case ex: Exception =>
         sender ! actor.Status.Failure(ex)

@@ -1,7 +1,8 @@
 package clientSim
 
 import akka.io.IO
-import system.F_Server
+import spray.json
+import system.{MyJsonProtocol, F_Server}
 
 //import spray.json._
 import spray.http._
@@ -22,11 +23,10 @@ import akka.actor.Actor
 import akka.actor.ActorSystem
 import spray.http._
 import spray.client.pipelining._
-import spray.json.AdditionalFormats
 import spray.httpx.SprayJsonSupport
 import spray.client.pipelining.sendReceive
 import scala.util.{Success, Failure}
-import system.jsonFiles.MyJsonProtocol._
+import MyJsonProtocol._
 import scala.concurrent.duration._
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -43,6 +43,9 @@ import akka.io.IO
 import spray.can.Http
 import spray.http._
 import HttpMethods._
+
+import MyJsonProtocol._
+import spray.json._
 
 class F_BaseClient extends Actor with ActorLogging with SprayJsonSupport with AdditionalFormats
 {
@@ -139,12 +142,12 @@ def receive = {
     // IO(Http) ! Http.Connect("localhost", port = 8080)
     //IO(Http) ! Http.HostConnectorSetup("localhost", port = 8080)
     //val response: Future[HttpResponse] = (IO(Http) ? HttpRequest(PUT, uri)).mapTo[HttpResponse]
-    val pipeline = sendReceive ~> unmarshal[F_User]
+    val pipeline = sendReceive ~> unmarshal[String]
     val responseFuture = pipeline {Put(uri)}
     responseFuture onComplete {
       case Success(jsonUser) =>
         log.info("createUser successful!!")
-        sender ! userCreated(f)
+        sender ! userCreated(jsonUser.parseJson.convertTo[F_User])
 
       case Failure(error) =>
         log.error(error, "Couldn't run createUser because of " + error.getMessage)
