@@ -6,13 +6,18 @@ import java.text.SimpleDateFormat
 import akka.actor.{ActorRef, Props, Actor, ActorLogging}
 import graphnodes.F_Picture
 import spray.http.{Uri, HttpRequest}
-import system.workers.F_PictureHandler
+import system.workers.{F_PageProfileHandler, F_UserHandler, F_PictureHandler}
 
 import scala.collection.mutable.Map
 
 
-class F_BackBone(f_pictureHandler: ActorRef, f_userHandler: ActorRef, f_pageProfileHandler: ActorRef) extends Actor with ActorLogging {
+class F_BackBone extends Actor with ActorLogging {
   import system.F_BackBone._
+
+  //NOTE better naming needed if distributed
+  val f_pictureHandler = context.actorOf(F_PictureHandler.props(self), "pictuere_handler")
+  val f_userHandler = context.actorOf(F_UserHandler.props(self), "user_handler")
+  val f_pageProfileHandler = context.actorOf(F_PageProfileHandler.props(self), "page_profile_hanlder")
 
   def receive: Receive = {
     //GET functions
@@ -101,7 +106,7 @@ class F_BackBone(f_pictureHandler: ActorRef, f_userHandler: ActorRef, f_pageProf
 }
 
 object F_BackBone {
-  def props(f_pictureHandler: ActorRef, f_userHandler: ActorRef, f_pageProfileHandler: ActorRef) = Props(new F_BackBone(f_pictureHandler, f_userHandler, f_pageProfileHandler))
+  def props = Props[F_BackBone]
 
   sealed trait GetInfo //for id doesnt exist make sure to throw a failure with that in the message, this will make the future respond like this
   //To complete the future with an exception you need send a Failure message to the sender. This is not done automatically when an actor throws an exception while processing a message. akka.actor.Status.Failure(exception)

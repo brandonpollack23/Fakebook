@@ -6,24 +6,21 @@
 * more complex tests
 */
 
-import java.net.{Inet4Address, InetSocketAddress}
+import java.net.InetSocketAddress
 
-import akka.actor.Status.Success
 import akka.actor.{ActorRef, ActorRefFactory, ActorSystem}
 import akka.event.LoggingAdapter
-import akka.testkit.{TestActorRef, ImplicitSender, TestKit, TestKitBase}
 import akka.pattern.ask
+import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestKitBase}
 import akka.util.Timeout
-import org.scalatest.{WordSpecLike, BeforeAndAfterAll, WordSpec}
+import org.scalatest.{BeforeAndAfterAll, WordSpec, WordSpecLike}
 import spray.can.Http
-import spray.http.{HttpResponse, HttpMethods, HttpRequest, HttpHeaders}
+import spray.http.{HttpHeaders, HttpResponse}
 import spray.json.JsArray
 import spray.testkit.ScalatestRouteTest
 import system.F_BackBone.CreateUser
-import system.workers.{F_PageProfileHandler, F_UserHandler, F_PictureHandler}
 import system.{F_BackBone, F_Listener, F_ListenerService, F_Server}
 
-import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
@@ -102,7 +99,7 @@ class FakebookBackEndTests(_system: ActorSystem) extends TestKit(_system) with W
     }
   }
 
-  val backbone: ActorRef = TestActorRef(new F_BackBone(TestActorRef(new F_PictureHandler(backbone)), TestActorRef(new F_UserHandler(backbone)), TestActorRef(new F_PageProfileHandler(backbone))))
+  val backbone: ActorRef = TestActorRef(new F_BackBone)
   val testListener = TestActorRef(new F_Listener(backbone, testActor))
   
   "The F_Listener actor" when {
