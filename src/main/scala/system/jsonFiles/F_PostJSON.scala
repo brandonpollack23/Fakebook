@@ -7,9 +7,9 @@ import MyJsonProtocol._
 object F_PostJSON //extends DefaultJsonProtocol
  {
 
-  def getJSON(post: F_Post) : JsValue ={
+  def getJSON(post: F_Post) ={
 
-    post.toJson
+    post.toJson.compactPrint
 
   }
 

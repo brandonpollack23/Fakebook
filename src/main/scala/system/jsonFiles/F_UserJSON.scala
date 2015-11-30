@@ -7,9 +7,9 @@ import MyJsonProtocol._
 object F_UserJSON //extends DefaultJsonProtocol
 {
 
-  def getJSON(user: F_User) : JsValue ={
+  def getJSON(user: F_User) ={
 
-    user.toJson
+    user.toJson.compactPrint
 
   }
 

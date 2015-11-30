@@ -7,9 +7,9 @@ import MyJsonProtocol._
 object F_PictureJSON //extends DefaultJsonProtocol
 {
 
-  def getJSON(picture: F_Picture) : JsValue ={
+  def getJSON(picture: F_Picture) ={
 
-    picture.toJson
+    picture.toJson.compactPrint
 
   }
 

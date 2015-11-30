@@ -41,8 +41,8 @@ object TestMain {
   def main(args : Array[String]): Unit =
   {
     implicit val system = ActorSystem("TestActorSystem")
-    val baseRef: ActorRef = system.actorOf(Props[F_BaseClient])
-    var userRef : ActorRef = system.actorOf(Props(new F_AverageUserClient(baseRef)))
+    val baseRef: ActorRef = system.actorOf(Props[F_BaseClient], "base_client")
+    var userRef : ActorRef = system.actorOf(Props(new F_AverageUserClient(baseRef)), "user_client")
     val handler:ActorRef = system.actorOf(F_Server.props,"handler")
     IO(Http) ! Http.Bind(handler, "localhost", port = 8080)
 

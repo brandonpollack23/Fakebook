@@ -7,9 +7,9 @@ import MyJsonProtocol._
 object F_ProfileJSON extends DefaultJsonProtocol
 {
 
-  def getJSON(profile: F_UserProfile) : JsValue ={
+  def getJSON(profile: F_UserProfile)= {
 
-    profile.toJson
+    profile.toJson.compactPrint
 
   }
 

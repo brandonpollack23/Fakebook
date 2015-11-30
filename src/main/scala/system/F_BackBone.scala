@@ -102,6 +102,12 @@ class F_BackBone extends Actor with ActorLogging {
     //InterSystem messages
     case CreateUserProfile(userID) =>
       f_pageProfileHandler forward CreateUserProfile(userID)
+
+    case DeleteUserProfile(userID) =>
+      f_pageProfileHandler forward DeleteUserProfile(userID)
+
+    case CreateDefaultAlbum(ownerID) =>
+      f_pictureHandler forward CreateDefaultAlbum(ownerID)
   }
 }
 

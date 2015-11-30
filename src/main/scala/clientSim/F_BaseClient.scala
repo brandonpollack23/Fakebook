@@ -130,10 +130,6 @@ def receive = {
                                                                       F_User.bioString -> bio,
                                                                       F_User.ageString -> age.toString,
                                                                       F_User.dobString -> dateFormatter.format(dob))
-                                                                     //F_User.changableParameters -> ,
-                                                                     // F_User.friendRequestString -> "",
-                                                                     // F_User.acceptFriendString -> "",
-                                                                     // F_User.friendRemoveString -> "")
 
     //val pipeline: HttpRequest => Future[HttpResponse] = sendReceive
     // val response: Future[HttpResponse] = pipeline(Get(uri))
@@ -146,15 +142,12 @@ def receive = {
     val pipeline = sendReceive ~> unmarshal[F_User]
     val responseFuture = pipeline {Put(uri)}
     responseFuture onComplete {
-      case Success(f: F_User) =>
+      case Success(jsonUser) =>
         log.info("createUser successful!!")
         sender ! userCreated(f)
 
-      case Success(somethingUnexpected) =>
-        log.warning("Something unexpected during createUser?")
-
       case Failure(error) =>
-        log.error(error, "Couldn't run createUser :(")
+        log.error(error, "Couldn't run createUser because of " + error.getMessage)
 
     }
 

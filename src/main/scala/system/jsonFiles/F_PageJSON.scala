@@ -7,9 +7,9 @@ import MyJsonProtocol._
 object F_PageJSON extends DefaultJsonProtocol
 {
 
-  def getJSON(page: F_Page) : JsValue ={
+  def getJSON(page: F_Page) ={
 
-    page.toJson
+    page.toJson.compactPrint
 
   }
 

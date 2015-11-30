@@ -15,9 +15,9 @@ object F_AlbumJSON //extends DefaultJsonProtocol
     JsString(bigInt.toString(16))
   }
 */
-  def getJSON(album: F_Album) : JsValue ={
+  def getJSON(album: F_Album) ={
 
-    album.toJson
+    album.toJson.compactPrint
 
   }
 

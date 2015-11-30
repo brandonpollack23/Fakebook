@@ -10,7 +10,7 @@ import scala.language.postfixOps
 class F_Server extends Actor with ActorLogging {
   implicit val timeout: Timeout = 1 second
 
-  val backbone: ActorRef = context.actorOf(F_BackBone.props)
+  val backbone: ActorRef = context.actorOf(F_BackBone.props, "f_backbone")
 
   def receive = {
     case _: Http.Connected =>

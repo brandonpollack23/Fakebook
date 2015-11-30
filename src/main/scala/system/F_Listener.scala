@@ -28,7 +28,7 @@ class F_Listener(backBoneActor: ActorRef, connectionHandler: ActorRef) extends A
 
   context.watch(connectionHandler)
 
-  log.debug("beginning user log\n")
+  log.debug("beginning listener log for " + connectionHandler)
 
   def receive = runRoute(route) orElse {
     case Terminated(_) =>
