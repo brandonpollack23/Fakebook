@@ -12,12 +12,9 @@ import scala.concurrent.ExecutionContext.Implicits.global
 //import spray.httpx.SprayJsonSupport
 //TODO there is no unique ID in user profile to pass
 //TODO way to know a post created is on a profile or a page by its return type
-//case class Begin()
-//case class Simulate()
-//case class PerformAction()
 
 
-class F_AverageUserClient(baseRef : ActorRef) extends Actor with ActorLogging{
+class F_AverageUserClient() extends Actor with ActorLogging{
 
   log.info("=> *AverageClient* Logging Started")
 
@@ -26,7 +23,7 @@ class F_AverageUserClient(baseRef : ActorRef) extends Actor with ActorLogging{
   var lastName:String = "Gator"
   var bio : String = "StudentAtUF"
   var age: Int = 25
-  val dobDate :Date= new Date(1989-1900,12,12)
+  val dobDate :Date= new Date(1989,12,12)
   var description : String = "Gator Profile"
   var description1:String = "new Gator Profile"
   var firstName1:String = "new Ali"
@@ -37,8 +34,7 @@ class F_AverageUserClient(baseRef : ActorRef) extends Actor with ActorLogging{
   var postContent: String = "content for a post"
   var locationType1 : String = "profile"
   var locationType2 : String= "page"
-  var myProfPosts = List[BigInt]()
-  var myPagePosts = List[BigInt]()
+
 
   //Page managed by user
   var pageName:String = "Gator Times"
@@ -46,12 +42,12 @@ class F_AverageUserClient(baseRef : ActorRef) extends Actor with ActorLogging{
   var pageName1:String = "new Gator Times"
   var pageDes1:String = "and much more"
   var myPage = F_Page(pageName, pageDes, new Date(1900,1,1), List[BigInt](), List[BigInt](), List[BigInt](), BigInt(0), BigInt(0))
-  var myPages = List[F_Page]()
+
 
   //default picture signature
   var pName:String = "my Picture"
   var pDes :String = "Vacation"
-  var myPics = List[BigInt]()
+
   var pName1:String = "my new picture"
   var pDes1:String =  "another vacation"
 
@@ -60,16 +56,17 @@ class F_AverageUserClient(baseRef : ActorRef) extends Actor with ActorLogging{
   var albmDes:String = "spring break"
   var albmName1:String = "my new album"
   var albmDes1:String = "thanksgiving"
+
+  var myProfPosts = List[BigInt]()
+  var myPagePosts = List[BigInt]()
+  var myPages = List[F_Page]()
+  var myPics = List[BigInt]()
   var myAlbums = List[BigInt]()
-  //val dateFormatter = new SimpleDateFormat("'M'MM'D'dd'Y'yyyy")
-  //val dob = dateFormatter.format(dobDate)
-  //var friends = List[BigInt]()
-  //var friendResuests = List[BigInt]()
-  //var activity : Int = 0
 
-  var user_ME    =  F_User("", "", "", 0,new Date(1990-1900,1,1), new Date(1990-1900,1,1), List[BigInt](), List[BigInt](), BigInt(0), BigInt(0))
-  var profile_ME =  F_UserProfile(List[BigInt](), new Date(1990-1900,1,1), List[BigInt](), BigInt(0), "", BigInt(0))
 
+  var user_ME    =  F_User("", "", "", 0,new Date(1990,1,1), new Date(1990,1,1), List[BigInt](), List[BigInt](), BigInt(0), BigInt(0))
+  var profile_ME =  F_UserProfile(List[BigInt](), new Date(1990,1,1), List[BigInt](), BigInt(0), "", BigInt(0))
+  val baseRef = context.actorOf(Props(classOf[F_BaseClient]), "baseActor")
 
    def receive ={
 
@@ -80,13 +77,13 @@ class F_AverageUserClient(baseRef : ActorRef) extends Actor with ActorLogging{
     case userCreated(res) =>
       log.info("=> User creation request complete at end user")
       user_ME = res
-      baseRef ! getUserProfile(user_ME.userID)
+      self !  Simulate //getUserProfile(user_ME.userID)
 
-    case userProfileRetrieved(res) =>
+/*    case userProfileRetrieved(res) =>
       log.info("=> UserProfile retrieved successfully")
       profile_ME = res
       baseRef ! Simulate
-
+*/
     case Simulate =>
       log.info("=> Simulation started")
       val system = ActorSystem("MySystem")

@@ -52,71 +52,7 @@ class F_BaseClient extends Actor with ActorLogging with SprayJsonSupport with Ad
 
 
   log.debug("BaseClient logging started")
-/*
-  case class createUser(fname:String, lName:String, bio:String, age:Int, dob:Date)
-  case class createPost(posterId: BigInt, content:String,locationType:String, locationId : BigInt)
-  case class createPage(userId : BigInt, pName:String, pDes:String)
-  case class createAlbum(id : BigInt, albmName:String, albmDes:String)
-  case class uploadPicture(pName:String, pDes:String, albumID : BigInt, userId: BigInt)
 
-  case class updateUserData(userID: BigInt, fName:String, lName:String, bio:String)
-  case class updateUserProfile(profId: BigInt, des:String)
-  case class updatePictureData(pName:String, pDes:String, albumID : BigInt, userId: BigInt)
-  case class updateAlbumData(useId :BigInt, albmId:BigInt, albmName:String, albmDes:String)
-  case class updatePost(id : BigInt, postID: BigInt)
-  case class updatePageData(userId : BigInt, pName:String, pDes:String)
-
-  case class getUserData(id :BigInt)
-  case class getUserProfile(id : BigInt)
-  case class getPictureData(userId : BigInt, picID:BigInt)
-  case class getAlbumData(userId : BigInt, albmId:BigInt)
-  case class getPost(userId : BigInt, postId:BigInt)
-  case class getPageData(id :BigInt)
-
-  case class deleteUser(id :BigInt)
-  case class deletePicture(userId :BigInt, picId:BigInt)
-  case class deleteAlbum(userId :BigInt, albmId:BigInt)
-  case class deletePost( id : BigInt, postId:BigInt)
-  case class deletePage(id :BigInt)
-
-  case class sendFriendReq(userId : BigInt, frndId :BigInt)
-  case class acceptFriendReq(userId :BigInt, frndId :BigInt)
-
-  case class userCreated(res : F_User)
-  case class postCreated(res : F_Post, locationType:String)
-  case class pageCreated(res : F_Page)
-  case class pictureUploaded(res : F_Picture)
-  case class albumCreated(res : F_Album)
-  case class profileCreated(res : F_UserProfile)
-
-  case class userEdited(res : F_User)
-  case class userProfileEdited(res : F_UserProfile)
-  case class postEdited(res : F_Post)
-  case class pageEdited(res : F_Page)
-  case class pictureEdited(res : F_Picture)
-  case class albumEdited(res : F_Album)
-  case class profileEdited(res : F_UserProfile)
-
-  case class userRetrieved(res : F_User)
-  case class userProfileRetrieved(res : F_UserProfile)
-  case class postRetrieved(res : F_Post)
-  case class pageRetrieved(res : F_Page)
-  case class pictureRetrieved(res : F_Picture)
-  case class albumRetrieved(res : F_Album)
-  case class profileRetrieved(res : F_UserProfile)
-
-  case class userDeleted(res : F_User)
-  case class postDeleted(res : F_Post)
-  case class pageDeleted(res : F_Page)
-  case class pictureDeleted(res : F_Picture)
-  case class albumDeleted(res : F_Album)
-  case class profileDeleted(res : F_UserProfile)
-
-  case class friendRequestSent()
-  case class friendRequestReceived()
-  case class friendRequestAccepted()
-  case class friendDeleted()
-*/
   implicit val system = ActorSystem()
   import system.dispatcher
   implicit val requestTimeout = Timeout(5 seconds)
@@ -134,20 +70,15 @@ def receive = {
                                                                       F_User.ageString -> age.toString,
                                                                       F_User.dobString -> dateFormatter.format(dob))
 
-    //val pipeline: HttpRequest => Future[HttpResponse] = sendReceive
-    // val response: Future[HttpResponse] = pipeline(Get(uri))
+
     log.info("=>> createUser sending request...")
-    //val handler:ActorRef = system.actorOf(F_Server.props,"handler")
-    //IO(Http) ! Http.Bind(handler, "localhost", port =8080)
-    // IO(Http) ! Http.Connect("localhost", port = 8080)
-    //IO(Http) ! Http.HostConnectorSetup("localhost", port = 8080)
-    //val response: Future[HttpResponse] = (IO(Http) ? HttpRequest(PUT, uri)).mapTo[HttpResponse]
+    var replyTo = sender
     val pipeline = sendReceive ~> unmarshal[String]
     val responseFuture = pipeline {Put(uri)}
     responseFuture onComplete {
       case Success(jsonUser) =>
         log.info("createUser successful!!")
-        sender ! userCreated(jsonUser.parseJson.convertTo[F_User])
+        replyTo ! userCreated(jsonUser.parseJson.convertTo[F_User])
 
       case Failure(error) =>
         log.error(error, "Couldn't run createUser because of " + error.getMessage)
@@ -164,15 +95,13 @@ def receive = {
                                                                   //F_Post.changableParamaters -> List(" "),
                                                                   F_Post.locationString -> locationId.toString())
     log.info("=>> createPost sending request...")
-    val pipeline = sendReceive ~> unmarshal[F_Post]
+    var replyTo = sender
+    val pipeline = sendReceive ~> unmarshal[String]
     val responseFuture = pipeline {Put(uri)}
     responseFuture onComplete {
-      case Success(f: F_Post) =>
+      case Success(jsonPost) =>
         log.info("createPost successful!!")
-        sender ! postCreated(f, locationType)
-
-      case Success(somethingUnexpected) =>
-        log.warning("Something unexpected during createPost?")
+        replyTo ! postCreated(jsonPost.parseJson.convertTo[F_Post], locationType)
 
       case Failure(error) =>
         log.error(error, "Couldn't run createPost :(")
@@ -188,15 +117,14 @@ def receive = {
                                                                   //F_Page.changableParameters -> ,
                                                                   F_Page.ownerString -> userId.toString(16))
     log.info("=>> createPage sending request...")
-    val pipeline = sendReceive ~> unmarshal[F_Page]
+    var replyTo = sender
+    val pipeline = sendReceive ~> unmarshal[String]
     val responseFuture = pipeline {Put(uri)}
     responseFuture onComplete {
-      case Success(f: F_Page) =>
+      case Success(jsonRef) =>
         log.info("Page creation successful!!")
-        sender ! pageCreated(f)
+        replyTo ! pageCreated(jsonRef.parseJson.convertTo[F_Page])
 
-      case Success(somethingUnexpected) =>
-        log.warning("Something unexpected during Page creation?")
 
       case Failure(error) =>
         log.error(error, "Couldn't get Page Created :(")
@@ -209,15 +137,13 @@ def receive = {
                                                                       //F_Album.changableParameters -> ,
                                                                       F_Album.descriptionString -> albmDes)
     log.info("=>> createAlbum sending request...")
-    val pipeline = sendReceive ~> unmarshal[F_Album]
+    var replyTo = sender
+    val pipeline = sendReceive ~> unmarshal[String]
     val responseFuture = pipeline {Put(uri)}
     responseFuture onComplete {
-      case Success(f: F_Album) =>
+      case Success(jsonRef) =>
         log.info("createAlbum successful!!")
-        sender ! albumCreated(f)
-
-      case Success(somethingUnexpected) =>
-        log.warning("Something unexpected during createAlbum?")
+        replyTo ! albumCreated(jsonRef.parseJson.convertTo[F_Album])
 
       case Failure(error) =>
         log.error(error, "Couldn't run createAlbum :(")
@@ -232,15 +158,14 @@ def receive = {
                                                                           F_Picture.albumString -> albumId.toString(16))
 
     log.info("=>> uploadPicture, sending request...")
-    val pipeline = sendReceive ~> unmarshal[F_Picture]
+    var replyTo = sender
+    val pipeline = sendReceive ~> unmarshal[String]
     val responseFuture = pipeline {Put(uri)}
     responseFuture onComplete {
-      case Success(f: F_Picture) =>
+      case Success(jsonRef) =>
         log.info("uploadPicture successful!!")
-        sender ! pictureUploaded(f)
+        replyTo ! pictureUploaded(jsonRef.parseJson.convertTo[F_Picture])
 
-      case Success(somethingUnexpected) =>
-        log.warning("Something unexpected during uploadPicture?")
 
       case Failure(error) =>
         log.error(error, "Couldn't run uploadPicture :(")
@@ -255,21 +180,20 @@ def receive = {
                                                                       F_User.firstNameString -> fName,
                                                                       F_User.bioString -> bio,
                                                                       F_User.dobString -> "",
-                                                                      F_User.ageString -> "",
+                                                                      F_User.ageString -> "")
                                                                       // F_User.changableParameters -> ,
-                                                                      F_User.friendRequestString -> "",
-                                                                      F_User.acceptFriendString -> "",
-                                                                      F_User.friendRemoveString -> "")
+                                                                      //F_User.friendRequestString -> "",
+                                                                      //F_User.acceptFriendString -> "",
+                                                                      //F_User.friendRemoveString -> "")
     log.info("=>> updateUserData, sending request...")
-    val pipeline = sendReceive ~> unmarshal[F_User]
+    var replyTo = sender
+    val pipeline = sendReceive ~> unmarshal[String]
     val responseFuture = pipeline {Post(uri)}
     responseFuture onComplete {
-      case Success(f: F_User) =>
+      case Success(jsonRef) =>
         log.info("updateUserData successful!!")
-        sender ! userEdited(f)
+        replyTo ! userEdited(jsonRef.parseJson.convertTo[F_User])
 
-      case Success(somethingUnexpected) =>
-        log.warning("Something unexpected during updateUserData?")
 
       case Failure(error) =>
         log.error(error, "Couldn't run updateUserData :(")
@@ -282,16 +206,15 @@ def receive = {
                                                                   // F_User.changableParameters -> ,
                                                                   F_UserProfile.descriptionString -> des)
     log.info("=>> updateUserProfile sending request...")
-    val pipeline = sendReceive ~> unmarshal[F_UserProfile]
+    var replyTo = sender
+    val pipeline = sendReceive ~> unmarshal[String]
     val responseFuture = pipeline {Post(uri)}
 
     responseFuture onComplete {
-      case Success(f: F_UserProfile) =>
+      case Success(jsonRef) =>
         log.info("updateUserData successful!!")
-        sender ! userProfileEdited(f)
+        replyTo ! userProfileEdited(jsonRef.parseJson.convertTo[F_UserProfile])
 
-      case Success(somethingUnexpected) =>
-        log.warning("Something unexpected during upadateUserProfile?")
 
       case Failure(error) =>
         log.error(error, "Couldn't run updateUserProfile :(")
@@ -307,15 +230,14 @@ def receive = {
                                                                   F_Picture.albumString -> "")
 
     log.info("=>> createPictureData, sending request...")
-    val pipeline = sendReceive ~> unmarshal[F_Picture]
+    var replyTo = sender
+    val pipeline = sendReceive ~> unmarshal[String]
     val responseFuture = pipeline {Post(uri)}
     responseFuture onComplete {
-      case Success(f: F_Picture) =>
+      case Success(jsonRef) =>
         log.info("updatePictureData successful!!")
-        sender ! pictureEdited(f)
+        replyTo ! pictureEdited(jsonRef.parseJson.convertTo[F_Picture])
 
-      case Success(somethingUnexpected) =>
-        log.warning("Something unexpected during updatePictureData?")
 
       case Failure(error) =>
         log.error(error, "Couldn't run updatePictureData :(")
@@ -328,16 +250,15 @@ def receive = {
                                                                 //F_Album.changableParameters ->
                                                                 F_Album.descriptionString -> albmDes)
     log.info("=>> updateAlbumData, sending request...")
-    val pipeline = sendReceive ~> unmarshal[F_Album]
+    var replyTo = sender
+    val pipeline = sendReceive ~> unmarshal[String]
     val responseFuture = pipeline {Post(uri)}
 
     responseFuture onComplete {
-      case Success(f: F_Album) =>
+      case Success(jsonRef) =>
         log.info("updateAlbumData successful!!")
-        sender ! albumEdited(f)
+        replyTo ! albumEdited(jsonRef.parseJson.convertTo[F_Album])
 
-      case Success(somethingUnexpected) =>
-        log.warning("Something unexpected during updateAlbumData?")
 
       case Failure(error) =>
         log.error(error, "Couldn't run updateAlbumData :(")
@@ -354,16 +275,15 @@ def receive = {
                                                               //F_Post.changableParamaters ->
                                                               F_Post.locationString -> postId.toString(16))
     log.info("=>> updatePost sending request...")
-    val pipeline = sendReceive ~> unmarshal[F_Post]
+    var replyTo = sender
+    val pipeline = sendReceive ~> unmarshal[String]
     val responseFuture = pipeline {Post(uri)}
 
     responseFuture onComplete {
-      case Success(f: F_Post) =>
+      case Success(jsonRef) =>
         log.info("updatePost successful!!")
-        sender ! postEdited(f)
+        replyTo ! postEdited(jsonRef.parseJson.convertTo[F_Post])
 
-      case Success(somethingUnexpected) =>
-        log.warning("Something unexpected during upatePost?")
 
       case Failure(error) =>
         log.error(error, "Couldn't run updatePost :(")
@@ -379,16 +299,15 @@ def receive = {
                                                               //F_Page.changableParameters -> ,
                                                               F_Page.ownerString -> userId.toString(16))
     log.info("=>> updatePageData sending request...")
-    val pipeline = sendReceive ~> unmarshal[F_Page]
+    var replyTo = sender
+    val pipeline = sendReceive ~> unmarshal[String]
     val responseFuture = pipeline {Post(uri)}
 
     responseFuture onComplete {
-      case Success(f: F_Page) =>
+      case Success(jsonRef) =>
         log.info("updatePageData successful!!")
-        sender ! pageEdited(f)
+        replyTo ! pageEdited(jsonRef.parseJson.convertTo[F_Page])
 
-      case Success(somethingUnexpected) =>
-        log.warning("Something unexpected during updatePageData?")
 
       case Failure(error) =>
         log.error(error, "Couldn't run updatePageData :(")
@@ -409,16 +328,15 @@ def receive = {
                                                               F_User.acceptFriendString -> "",
                                                               F_User.friendRemoveString -> "")
     log.info("=>> getUserData sending request...")
-    val pipeline = sendReceive ~> unmarshal[F_User]
+    var replyTo = sender
+    val pipeline = sendReceive ~> unmarshal[String]
     val responseFuture = pipeline {Get(uri)}
 
     responseFuture onComplete {
-      case Success(f: F_User) =>
+      case Success(jsonRef) =>
         log.info("getUserData successful!!")
-        sender ! userRetrieved(f)
+        replyTo ! userRetrieved(jsonRef.parseJson.convertTo[F_User])
 
-      case Success(somethingUnexpected) =>
-        log.warning("Something unexpected during getUserData?")
 
       case Failure(error) =>
         log.error(error, "Couldn't run getUserData :(")
@@ -426,27 +344,26 @@ def receive = {
     }
 
 
-  case getUserProfile(id) =>
+/*  case getUserProfile(id) =>
     val uri = Uri("http://localhost:8080/profile") withQuery( F_UserProfile.profilePictureString -> "",
                                                                   // F_User.changableParameters -> ,
                                                                   F_UserProfile.descriptionString -> "")
     log.info("=>> getUserProfile sending request...")
-    val pipeline = sendReceive ~> unmarshal[F_UserProfile]
+    var replyTo = sender
+    val pipeline = sendReceive ~> unmarshal[String]
     val responseFuture = pipeline {Get(uri)}
 
     responseFuture onComplete {
-      case Success(f: F_UserProfile) =>
+      case Success(jsonRef) =>
         log.info("getUserData successful!!")
-        sender ! userProfileRetrieved(f)
+        replyTo ! userProfileRetrieved(jsonRef.parseJson.convertTo[F_UserProfile])
 
-      case Success(somethingUnexpected) =>
-        log.warning("Something unexpected during getUserProfile?")
 
       case Failure(error) =>
         log.error(error, "Couldn't run getUserProfile :(")
 
     }
-
+*/
 
   case getPictureData(id, picId) =>              //TODO picture object doesn't have uniqueID for pic identification
     val uri = Uri("http://localhost:8080/picture") withQuery( F_Picture.ownerString -> id.toString(16),
@@ -455,16 +372,15 @@ def receive = {
                                                                   //F_Picture.changableParameters -> ,
                                                                   F_Picture.albumString -> "")
     log.info("=>> getPictureData sending request...")
-    val pipeline = sendReceive ~> unmarshal[F_Picture]
+    var replyTo = sender
+    val pipeline = sendReceive ~> unmarshal[String]
     val responseFuture = pipeline {Get(uri)}
 
     responseFuture onComplete {
-      case Success(f: F_Picture) =>
+      case Success(jsonRef) =>
         log.info("getPictureData successful!!")
-        sender ! pictureRetrieved(f)
+        replyTo ! pictureRetrieved(jsonRef.parseJson.convertTo[F_Picture])
 
-      case Success(somethingUnexpected) =>
-        log.warning("Something unexpected during getPictureData?")
 
       case Failure(error) =>
         log.error(error, "Couldn't run getPictureData :(")
@@ -477,16 +393,15 @@ def receive = {
                                                                 //F_Album.changableParameters ->
                                                                 F_Album.descriptionString -> "")
     log.info("=>> getAlbumData, sending request...")
-    val pipeline = sendReceive ~> unmarshal[F_Album]
+    var replyTo = sender
+    val pipeline = sendReceive ~> unmarshal[String]
     val responseFuture = pipeline {Get(uri)}
 
     responseFuture onComplete {
-      case Success(f: F_Album) =>
+      case Success(jsonRef) =>
         log.info("getAlbumData successful!!")
-        sender ! albumRetrieved(f)
+        replyTo ! albumRetrieved(jsonRef.parseJson.convertTo[F_Album])
 
-      case Success(somethingUnexpected) =>
-        log.warning("Something unexpected during getAlbumData?")
 
       case Failure(error) =>
         log.error(error, "Couldn't run getAlbumData :(")
@@ -503,16 +418,15 @@ def receive = {
                                                               //F_Post.changableParamaters ->
                                                               F_Post.locationString -> postId.toString(16))
     log.info("=>> getPost sending request...")
-    val pipeline = sendReceive ~> unmarshal[F_Post]
+    var replyTo = sender
+    val pipeline = sendReceive ~> unmarshal[String]
     val responseFuture = pipeline {Get(uri)}
 
     responseFuture onComplete {
-      case Success(f: F_Post) =>
+      case Success(jsonRef) =>
         log.info("getPost successful!!")
-        sender ! postRetrieved(f)
+        replyTo ! postRetrieved(jsonRef.parseJson.convertTo[F_Post])
 
-      case Success(somethingUnexpected) =>
-        log.warning("Something unexpected during getPost?")
 
       case Failure(error) =>
         log.error(error, "Couldn't run getPost :(")
@@ -528,16 +442,15 @@ def receive = {
                                                               //F_Page.changableParameters -> ,
                                                               F_Page.ownerString -> "")
     log.info("=>> getPageData, sending request...")
-    val pipeline = sendReceive ~> unmarshal[F_Page]
+    var replyTo = sender
+    val pipeline = sendReceive ~> unmarshal[String]
     val responseFuture = pipeline {Get(uri)}
 
     responseFuture onComplete {
-      case Success(f: F_Page) =>
+      case Success(jsonRef) =>
         log.info("getPageData successful!!")
-        sender ! pageRetrieved(f)
+        replyTo ! pageRetrieved(jsonRef.parseJson.convertTo[F_Page])
 
-      case Success(somethingUnexpected) =>
-        log.warning("Something unexpected during getPageData?")
 
       case Failure(error) =>
         log.error(error, "Couldn't run getPageData :(")
@@ -558,16 +471,15 @@ def receive = {
                                                               F_User.acceptFriendString -> "",
                                                               F_User.friendRemoveString -> "")
     log.info("=>> deleteUser, sending request...")
-    val pipeline = sendReceive ~> unmarshal[F_User]
+    var replyTo = sender
+    val pipeline = sendReceive ~> unmarshal[String]
     val responseFuture = pipeline {Delete(uri)}
 
     responseFuture onComplete {
-      case Success(f: F_User) =>
+      case Success(jsonRef) =>
         log.info("deleteUser successful!!")
-        sender ! userDeleted(f)
+        replyTo ! userDeleted(jsonRef.parseJson.convertTo[F_User])
 
-      case Success(somethingUnexpected) =>
-        log.warning("Something unexpected during deleteUser?")
 
       case Failure(error) =>
         log.error(error, "Couldn't run deleteUser :(")
@@ -581,16 +493,15 @@ def receive = {
                                                                   //F_Picture.changableParameters -> ,
                                                                   F_Picture.albumString -> "")
     log.info("=>> deletePicture sending request...")
-    val pipeline = sendReceive ~> unmarshal[F_Picture]
+    var replyTo = sender
+    val pipeline = sendReceive ~> unmarshal[String]
     val responseFuture = pipeline {Delete(uri)}
 
     responseFuture onComplete {
-      case Success(f: F_Picture) =>
+      case Success(jsonRef) =>
         log.info("deletePicture successful!!")
-        sender ! pictureDeleted(f)
+        replyTo ! pictureDeleted(jsonRef.parseJson.convertTo[F_Picture])
 
-      case Success(somethingUnexpected) =>
-        log.warning("Something unexpected during deletePicture?")
 
       case Failure(error) =>
         log.error(error, "Couldn't run deletePicture :(")
@@ -603,16 +514,15 @@ def receive = {
                                                                 //F_Album.changableParameters ->
                                                                 F_Album.descriptionString -> "")
     log.info("=>> deleteAlbum sending request...")
-    val pipeline = sendReceive ~> unmarshal[F_Album]
+    var replyTo = sender
+    val pipeline = sendReceive ~> unmarshal[String]
     val responseFuture = pipeline {Delete(uri)}
 
     responseFuture onComplete {
-      case Success(f: F_Album) =>
+      case Success(jsonRef) =>
         log.info("deleteAlbum successful!!")
-        sender ! albumDeleted(f)
+        replyTo ! albumDeleted(jsonRef.parseJson.convertTo[F_Album])
 
-      case Success(somethingUnexpected) =>
-        log.warning("Something unexpected during deleteAlbum?")
 
       case Failure(error) =>
         log.error(error, "Couldn't run deleteAlbum :(")
@@ -629,16 +539,15 @@ def receive = {
                                                               //F_Post.changableParamaters ->
                                                               F_Post.locationString -> postId.toString(16))
     log.info("=>> deletePost sending request...")
-    val pipeline = sendReceive ~> unmarshal[F_Post]
+    var replyTo = sender
+    val pipeline = sendReceive ~> unmarshal[String]
     val responseFuture = pipeline {Delete(uri)}
 
     responseFuture onComplete {
-      case Success(f: F_Post) =>
+      case Success(jsonRef) =>
         log.info("deletePost successful!!")
-        sender ! postDeleted(f)
+        replyTo ! postDeleted(jsonRef.parseJson.convertTo[F_Post])
 
-      case Success(somethingUnexpected) =>
-        log.warning("Something unexpected during deletePost?")
 
       case Failure(error) =>
         log.error(error, "Couldn't run deletePost :(")
@@ -654,16 +563,15 @@ def receive = {
                                                               //F_Page.changableParameters -> ,
                                                               F_Page.ownerString -> "")
     log.info("=>> deletePage, sending request...")
-    val pipeline = sendReceive ~> unmarshal[F_Page]
+    var replyTo = sender
+    val pipeline = sendReceive ~> unmarshal[String]
     val responseFuture = pipeline {Delete(uri)}
 
     responseFuture onComplete {
-      case Success(f: F_Page) =>
+      case Success(jsonRef) =>
         log.info("deletePage successful!!")
-        sender ! pageDeleted(f)
+        replyTo ! pageDeleted(jsonRef.parseJson.convertTo[F_Page])
 
-      case Success(somethingUnexpected) =>
-        log.warning("Something unexpected during deletePage?")
 
       case Failure(error) =>
         log.error(error, "Couldn't run deletePage :(")
@@ -678,18 +586,17 @@ def receive = {
   case sendFriendReq(id1, id2) =>
     val uri = Uri("http://localhost:8080/user/resuest") withQuery()  //send user id self and requested users
     log.info("=>> sendFriendRequest, sending request...")
-    val pipeline = sendReceive ~> unmarshal[F_Page]
+    var replyTo = sender
+    val pipeline = sendReceive ~> unmarshal[String]
     val responseFuture = pipeline {Put(uri)}
     responseFuture onComplete {
-      case Success(f: F_Page) =>
-        log.info("Page creation successful!!")
-        sender ! pageCreated(f)
+      case Success(jsonRef) =>
+        log.info("friend request successful!!")
+        //replyTo ! pageCreated(jsonRef)
 
-      case Success(somethingUnexpected) =>
-        log.warning("Something unexpected during Page creation?")
 
       case Failure(error) =>
-        log.error(error, "Couldn't get Page Created :(")
+        log.error(error, "Couldn't send friend request :(")
 
     }
 

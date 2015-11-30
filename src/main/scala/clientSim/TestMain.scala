@@ -1,6 +1,6 @@
 package clientSim
 
-//import _root_.MyJsonProtocol._
+
 import akka.actor.{Props, ActorRef, ActorSystem}
 import akka.actor.{Props, ActorRef, Actor, ActorLogging}
 import akka.testkit.TestActorRef
@@ -39,12 +39,47 @@ object TestMain {
   def main(args : Array[String]): Unit =
   {
     implicit val system = ActorSystem("TestActorSystem")
-    val baseRef: ActorRef = system.actorOf(Props[F_BaseClient], "base_client")
-    var userRef : ActorRef = system.actorOf(Props(new F_AverageUserClient(baseRef)), "user_client")
+
     val handler:ActorRef = system.actorOf(F_Server.props,"handler")
     IO(Http) ! Http.Bind(handler, "localhost", port = 8080)
 
-    userRef ! Begin
+
+    implicit val system1 = ActorSystem("ActorSystem")
+
+    val userLoad :Int= 1000
+    val heavyPercent:Double = 0.1
+    val lightPercent:Double = 0.4
+    val normalPercent :Double= 0.5
+
+    val heavy:Int = (userLoad * heavyPercent).toInt
+    val light:Int = (userLoad * lightPercent).toInt
+    val normal:Int = (userLoad * normalPercent).toInt
+
+    var i:Int = 0
+    while(i<heavy) {
+
+      var userRef: ActorRef = system1.actorOf(Props(new F_HeavyUserClient()), "user_client"+i)
+      userRef ! Begin
+      i += 1
+    }
+    i=0
+
+    while(i<light){
+      var userRef: ActorRef = system1.actorOf(Props(new F_LightUserClient()), "user_client"+i)
+      userRef ! Begin
+      i += 1
+
+    }
+      i=0
+
+    while(i<normal){
+
+      var userRef: ActorRef = system1.actorOf(Props(new F_AverageUserClient()), "user_client"+i)
+      userRef ! Begin
+      i += 1
+    }
+
+
 
  }
 
