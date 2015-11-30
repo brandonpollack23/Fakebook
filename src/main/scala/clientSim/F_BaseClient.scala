@@ -336,10 +336,8 @@ def receive = {
     }
 
 
-/*  case getUserProfile(id) =>
-    val uri = Uri("http://localhost:8080/profile") withQuery( F_UserProfile.profilePictureString -> "",
-                                                                  // F_User.changableParameters -> ,
-                                                                  F_UserProfile.descriptionString -> "")
+  case getUserProfile(id) =>
+    val uri = Uri("http://localhost:8080/profile/" + id.toString(16))
     log.info("=>> getUserProfile sending request...")
     var replyTo = sender
     val pipeline = sendReceive ~> unmarshal[String]
@@ -355,7 +353,7 @@ def receive = {
         log.error(error, "Couldn't run getUserProfile :(")
 
     }
-*/
+
 
   case getPictureData(id, picId) =>              //TODO picture object doesn't have uniqueID for pic identification
     val uri = Uri("http://localhost:8080/picture") withQuery( F_Picture.ownerString -> id.toString(16),
