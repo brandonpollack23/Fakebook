@@ -29,7 +29,7 @@ case class updatePictureData(pName: String, pDes: String, albumID: BigInt, userI
 
 case class updateAlbumData(useId: BigInt, albmId: BigInt, albmName: String, albmDes: String)
 
-case class updatePost(id: BigInt, postID: BigInt)
+case class updatePost(id: BigInt, postID: BigInt, locationType: String, contents: String)
 
 case class updatePageData(userId: BigInt, pName: String, pDes: String)
 

@@ -12,10 +12,11 @@ case class F_Post(contents: String,
 object F_Post {
   val contentsString = "contents"
   val creatorString = "creator"
-  val locationType = "location"
-  val locationTypeString = "locationType"
+  val locationTypeString = "locationType" //string to show where this is, either in profiles or pages object
+    //these are the two options for input to locationTypeString in the Json Doc
     val locationPage = "page"
     val locationProfile = "profile"
+  //this is the actual BigInt that is the location
   val locationString = "location"
 
   val changableParamaters = List(contentsString)

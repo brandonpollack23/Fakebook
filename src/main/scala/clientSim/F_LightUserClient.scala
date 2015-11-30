@@ -113,11 +113,11 @@ class F_LightUserClient() extends Actor with ActorLogging{
         }
         if (z >= 75 && z < 85) {
           if (profile_ME.posts.nonEmpty)
-            baseRef ! updatePost(user_ME.userID, profile_ME.posts(Random.nextInt(profile_ME.posts.length))) //from profile
+            baseRef ! updatePost(user_ME.userID, profile_ME.posts(Random.nextInt(profile_ME.posts.length)), F_Post.locationProfile, "this is now updated!") //from profile
         }
         if(z>=85 && z< 90){
           if (myPage.posts.nonEmpty)
-            baseRef ! updatePost(user_ME.userID, myPage.posts(Random.nextInt(myPage.posts.length))) //from page
+            baseRef ! updatePost(user_ME.userID, myPage.posts(Random.nextInt(myPage.posts.length)), F_Post.locationProfile, "this is now updated!") //from page
         }
         if(z>=90 && z<= 95) {
           if (profile_ME.posts.nonEmpty)

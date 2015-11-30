@@ -88,12 +88,8 @@ def receive = {
   case createPost(posterId, content, locationType, locationId) =>
     val uri = Uri("http://localhost:8080/newpost") withQuery( F_Post.contentsString -> content,
                                                                   F_Post.creatorString -> posterId.toString(16),
-                                                                  F_Post.locationType -> locationType,
-                                                                  F_Post.locationTypeString -> "",
-                                                                  F_Post.locationPage -> "",
-                                                                  F_Post.locationProfile -> "",
-                                                                  //F_Post.changableParamaters -> List(" "),
-                                                                  F_Post.locationString -> locationId.toString())
+                                                                  F_Post.locationString -> locationId.toString(16),
+                                                                  F_Post.locationTypeString -> locationType)
     log.info("=>> createPost sending request...")
     var replyTo = sender
     val pipeline = sendReceive ~> unmarshal[String]
@@ -265,14 +261,10 @@ def receive = {
 
     }
 
-  case updatePost(id, postId) =>
-    val uri = Uri("http://localhost:8080/post") withQuery(F_Post.contentsString -> "",
+  case updatePost(id, postId, locationType, contents) =>
+    val uri = Uri("http://localhost:8080/post") withQuery(F_Post.contentsString -> contents,
                                                               F_Post.creatorString -> id.toString(16),
-                                                              F_Post.locationType -> "",
-                                                              F_Post.locationTypeString -> "",
-                                                              F_Post.locationPage -> "",
-                                                              F_Post.locationProfile -> "",
-                                                              //F_Post.changableParamaters ->
+                                                              F_Post.locationTypeString -> locationType,
                                                               F_Post.locationString -> postId.toString(16))
     log.info("=>> updatePost sending request...")
     var replyTo = sender
@@ -409,14 +401,8 @@ def receive = {
     }
 
   case getPost(id, postId) =>
-    val uri = Uri("http://localhost:8080/post") withQuery(F_Post.contentsString -> "",
-                                                              F_Post.creatorString -> id.toString(16),
-                                                              F_Post.locationType -> "",
-                                                              F_Post.locationTypeString -> "",
-                                                              F_Post.locationPage -> "",
-                                                              F_Post.locationProfile -> "",
-                                                              //F_Post.changableParamaters ->
-                                                              F_Post.locationString -> postId.toString(16))
+    val uri = Uri("http://localhost:8080/post")
+
     log.info("=>> getPost sending request...")
     var replyTo = sender
     val pipeline = sendReceive ~> unmarshal[String]
@@ -530,14 +516,7 @@ def receive = {
     }
 
   case deletePost(id, postId) =>
-    val uri = Uri("http://localhost:8080/post") withQuery(F_Post.contentsString -> "",
-                                                              F_Post.creatorString -> id.toString(16),
-                                                              F_Post.locationType -> "",
-                                                              F_Post.locationTypeString -> "",
-                                                              F_Post.locationPage -> "",
-                                                              F_Post.locationProfile -> "",
-                                                              //F_Post.changableParamaters ->
-                                                              F_Post.locationString -> postId.toString(16))
+    val uri = Uri("http://localhost:8080/post")
     log.info("=>> deletePost sending request...")
     var replyTo = sender
     val pipeline = sendReceive ~> unmarshal[String]

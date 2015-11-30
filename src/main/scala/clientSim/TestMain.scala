@@ -46,7 +46,7 @@ object TestMain {
 
     implicit val system1 = ActorSystem("ActorSystem")
 
-    val userLoad :Int= 1000
+    val userLoad :Int= 10
     val heavyPercent:Double = 0.1
     val lightPercent:Double = 0.4
     val normalPercent :Double= 0.5
@@ -56,16 +56,18 @@ object TestMain {
     val normal:Int = (userLoad * normalPercent).toInt
 
     var i:Int = 0
+    var userRef: ActorRef = null
+
     while(i<heavy) {
 
-      var userRef: ActorRef = system1.actorOf(Props(new F_HeavyUserClient()), "user_client"+i)
+      userRef = system1.actorOf(Props(new F_HeavyUserClient()), "heavy_user_client"+i)
       userRef ! Begin
       i += 1
     }
     i=0
 
     while(i<light){
-      var userRef: ActorRef = system1.actorOf(Props(new F_LightUserClient()), "user_client"+i)
+      userRef = system1.actorOf(Props(new F_LightUserClient()), "light_user_client"+i)
       userRef ! Begin
       i += 1
 
@@ -74,7 +76,7 @@ object TestMain {
 
     while(i<normal){
 
-      var userRef: ActorRef = system1.actorOf(Props(new F_AverageUserClient()), "user_client"+i)
+      userRef = system1.actorOf(Props(new F_AverageUserClient()), "normal_user_client"+i)
       userRef ! Begin
       i += 1
     }
