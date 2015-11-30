@@ -32,8 +32,8 @@ object MyJsonProtocol extends DefaultJsonProtocol {
                           description,
                           new Date(dateOfCreation.toLong),
                           isDefault,
-                          BigInt(ownerId),
-                          BigInt(id),
+                          BigInt(Integer.parseInt(ownerId,16)),
+                          BigInt(Integer.parseInt(id,16)),
                           images.map(_.convertTo[BigInt])(collection.breakOut) )
                     case _ => deserializationError("Album Expected")
     }
@@ -66,8 +66,8 @@ object MyJsonProtocol extends DefaultJsonProtocol {
                              userList.map(_.convertTo[BigInt])(collection.breakOut),
                              posts.map(_.convertTo[BigInt])(collection.breakOut),
                              albumIDs.map(_.convertTo[BigInt])(collection.breakOut),
-                             BigInt(pictureID),
-                             BigInt(ownerID) )
+                             BigInt(Integer.parseInt(pictureID,16)),
+                             BigInt(Integer.parseInt(ownerID,16)) )
                     case _ => deserializationError("Page Expected")
     }
   }
@@ -93,11 +93,11 @@ object MyJsonProtocol extends DefaultJsonProtocol {
                             JsString(ownerID))) =>
                         new F_Picture(name,
                             description,
-                            BigInt(containingAlbum),
+                            BigInt(Integer.parseInt(containingAlbum,16)),
                             new java.util.Date(dateOfCreation.toLong),
                             BigInt(fileID),
-                            BigInt(pictureID),
-                            BigInt(ownerID))
+                            BigInt(Integer.parseInt(pictureID,16)),
+                            BigInt(Integer.parseInt(ownerID,16)))
                        case _ => deserializationError("Picture Expected")
     }
   }
@@ -121,11 +121,11 @@ object MyJsonProtocol extends DefaultJsonProtocol {
                           JsNumber(dateOfCreation),
                           JsString(postID))) =>
                       new F_Post(contents,
-                          BigInt(creator),
+                          BigInt(Integer.parseInt(creator,16)),
                           locationType,
-                          BigInt(location),
+                          BigInt(Integer.parseInt(location,16)),
                           new Date(dateOfCreation.toLong),
-                          BigInt(postID) )
+                          BigInt(Integer.parseInt(postID,16)) )
                      case _ => deserializationError("Post Expected")
     }
   }
@@ -149,8 +149,8 @@ object MyJsonProtocol extends DefaultJsonProtocol {
                                     JsString(lastName),
                                     JsString(biography),
                                     JsNumber(age),
-                                    JsString(dateOfBirth),
-                                    JsString(dateOfCreation),
+                                    JsNumber(dateOfBirth),
+                                    JsNumber(dateOfCreation),
                                     JsArray(friends),
                                     JsArray(friendRequests),
                                     JsString(profileID),
@@ -163,8 +163,8 @@ object MyJsonProtocol extends DefaultJsonProtocol {
                                     new Date(dateOfCreation.toLong),
                                     friends.map(_.convertTo[BigInt])(collection.breakOut),
                                     friendRequests.map(_.convertTo[BigInt])(collection.breakOut),
-                                    BigInt(profileID),
-                                    BigInt(userID))
+                                    BigInt(Integer.parseInt(profileID,16)),
+                                    BigInt(Integer.parseInt(userID,16)))
                                case _ => deserializationError("User Expected")
     }
   }
@@ -189,9 +189,9 @@ object MyJsonProtocol extends DefaultJsonProtocol {
                                new F_UserProfile(posts.map(_.convertTo[BigInt])(collection.breakOut),
                                    new Date(dateOfCreation.toLong),
                                    albumIDs.map(_.convertTo[BigInt])(collection.breakOut),
-                                   BigInt(profilePictureID),
+                                   BigInt(Integer.parseInt(profilePictureID,16)),
                                    description,
-                                   BigInt(profileID))
+                                   BigInt(Integer.parseInt(profileID,16)))
                               case _ => deserializationError("User_Profile Expected")
     }
   }
