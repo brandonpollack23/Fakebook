@@ -55,7 +55,7 @@ trait F_ListenerService extends HttpService {
   //NOTE: All IDs should be sent in HEX
   val extractRequestContext = extract(x => x)
   val route: Route =  {
-    host("fakebook.com", "www.fakebook.com") {
+    host("localhost", "www.fakebook.com") {
       pathSingleSlash {
         complete("pong")
       } ~

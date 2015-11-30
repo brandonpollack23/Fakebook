@@ -22,16 +22,16 @@ class F_AverageUserClient(baseRef : ActorRef) extends Actor with ActorLogging{
   log.info("=> *AverageClient* Logging Started")
 
   //parameters for User
-  var firstName = "Ali"
-  var lastName = "Gator"
-  var bio : String = "Student@UF"
+  var firstName:String = "Ali"
+  var lastName:String = "Gator"
+  var bio : String = "StudentAtUF"
   var age: Int = 25
-  val dobDate = new Date(1989-1900,12,12)
+  val dobDate :Date= new Date(1989-1900,12,12)
   var description : String = "Gator Profile"
   var description1:String = "new Gator Profile"
   var firstName1:String = "new Ali"
   var lastName1:String= "new Gator"
-  var bio1:String = "new Atudent@UF"
+  var bio1:String = "new Student@UF"
 
   //parameters for Post
   var postContent: String = "content for a post"
@@ -45,7 +45,7 @@ class F_AverageUserClient(baseRef : ActorRef) extends Actor with ActorLogging{
   var pageDes :String = "All about UF"
   var pageName1:String = "new Gator Times"
   var pageDes1:String = "and much more"
-  var myPage = F_Page(pageName, pageDes, null, null, null, null, null, null)
+  var myPage = F_Page(pageName, pageDes, new Date(1900,1,1), List[BigInt](), List[BigInt](), List[BigInt](), BigInt(0), BigInt(0))
   var myPages = List[F_Page]()
 
   //default picture signature
@@ -67,8 +67,8 @@ class F_AverageUserClient(baseRef : ActorRef) extends Actor with ActorLogging{
   //var friendResuests = List[BigInt]()
   //var activity : Int = 0
 
-  var user_ME    =  F_User(null, null, null, 0,null, null, null, null, null, null)
-  var profile_ME =  F_UserProfile(null, null, null, null, null, null)
+  var user_ME    =  F_User("", "", "", 0,new Date(1990-1900,1,1), new Date(1990-1900,1,1), List[BigInt](), List[BigInt](), BigInt(0), BigInt(0))
+  var profile_ME =  F_UserProfile(List[BigInt](), new Date(1990-1900,1,1), List[BigInt](), BigInt(0), "", BigInt(0))
 
 
    def receive ={

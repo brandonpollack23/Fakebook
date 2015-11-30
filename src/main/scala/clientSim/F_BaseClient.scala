@@ -1,9 +1,12 @@
 package clientSim
 
-//import akka.io.IO
+import akka.io.IO
+import system.F_Server
+
 //import spray.json._
-//import HttpMethods._
-//import spray.can.Http
+import spray.http._
+import HttpMethods._
+import spray.can.Http
 //import akka.pattern.ask
 //import akka.util.Timeout
 //import scala.concurrent._
@@ -29,7 +32,17 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import MatchClasses._
 
+import scala.concurrent.Future
+import scala.concurrent.duration._
 
+import akka.actor.ActorSystem
+import akka.util.Timeout
+import akka.pattern.ask
+import akka.io.IO
+
+import spray.can.Http
+import spray.http._
+import HttpMethods._
 
 class F_BaseClient extends Actor with ActorLogging with SprayJsonSupport with AdditionalFormats
 {
@@ -112,19 +125,24 @@ def receive = {
   //Create operations
   case createUser(fname, lname, bio, age, dob) =>
 
-    val uri = Uri("https://www.fakebook.com/newuser?") withQuery( F_User.lastNameString -> fname,
-                                                                  F_User.firstNameString -> lname,
-                                                                  F_User.bioString -> bio,
-                                                                  F_User.dobString -> dateFormatter.format(dob),
-                                                                  F_User.ageString -> age.toString,
-                                                                  //F_User.changableParameters -> "",
-                                                                  F_User.friendRequestString -> "",
-                                                                  F_User.acceptFriendString -> "",
-                                                                  F_User.friendRemoveString -> "")
+    val uri = Uri("http://localhost:8080/users/newuser") withQuery(F_User.lastNameString -> lname,
+                                                                      F_User.firstNameString -> fname,
+                                                                      F_User.bioString -> bio,
+                                                                      F_User.ageString -> age.toString,
+                                                                      F_User.dobString -> dateFormatter.format(dob))
+                                                                     //F_User.changableParameters -> ,
+                                                                     // F_User.friendRequestString -> "",
+                                                                     // F_User.acceptFriendString -> "",
+                                                                     // F_User.friendRemoveString -> "")
 
     //val pipeline: HttpRequest => Future[HttpResponse] = sendReceive
     // val response: Future[HttpResponse] = pipeline(Get(uri))
     log.info("=>> createUser sending request...")
+    //val handler:ActorRef = system.actorOf(F_Server.props,"handler")
+    //IO(Http) ! Http.Bind(handler, "localhost", port =8080)
+    // IO(Http) ! Http.Connect("localhost", port = 8080)
+    //IO(Http) ! Http.HostConnectorSetup("localhost", port = 8080)
+    //val response: Future[HttpResponse] = (IO(Http) ? HttpRequest(PUT, uri)).mapTo[HttpResponse]
     val pipeline = sendReceive ~> unmarshal[F_User]
     val responseFuture = pipeline {Put(uri)}
     responseFuture onComplete {
@@ -141,7 +159,7 @@ def receive = {
     }
 
   case createPost(posterId, content, locationType, locationId) =>
-    val uri = Uri("https://www.fakebook.com/newpost?") withQuery( F_Post.contentsString -> content,
+    val uri = Uri("http://localhost:8080/newpost") withQuery( F_Post.contentsString -> content,
                                                                   F_Post.creatorString -> posterId.toString(16),
                                                                   F_Post.locationType -> locationType,
                                                                   F_Post.locationTypeString -> "",
@@ -166,7 +184,7 @@ def receive = {
     }
 
   case createPage(userId, pName, pDes) =>
-    val uri = Uri("https://www.fakebook.com/newpage?") withQuery( F_Page.joinPageString -> "",
+    val uri = Uri("http://localhost:8080/page/newpage") withQuery( F_Page.joinPageString -> "",
                                                                   F_Page.leavePageString -> "",
                                                                   F_Page.newUserString -> "",
                                                                   F_Page.nameString -> pName,
@@ -190,7 +208,7 @@ def receive = {
     }
 
   case createAlbum(userId, albmName, albmDes) =>
-    val uri = Uri("https://www.fakebook.com/createalbum?") withQuery( F_Album.ownerString -> userId.toString(16),
+    val uri = Uri("http://localhost:8080/album/createalbum") withQuery( F_Album.ownerString -> userId.toString(16),
                                                                       F_Album.nameString -> albmName,
                                                                       //F_Album.changableParameters -> ,
                                                                       F_Album.descriptionString -> albmDes)
@@ -211,7 +229,7 @@ def receive = {
     }
 
   case uploadPicture(pName, pDes, albumId, userId) =>
-    val uri = Uri("https://www.fakebook.com/data/uploadimage?") withQuery(F_Picture.ownerString -> userId.toString(16),
+    val uri = Uri("http://localhost:8080/data/uploadimage") withQuery(F_Picture.ownerString -> userId.toString(16),
                                                                           F_Picture.nameString -> pName,
                                                                           F_Picture.descriptionString -> pDes,
                                                                           //F_Picture.changableParameters -> ,
@@ -237,7 +255,7 @@ def receive = {
 
   //Update operations
   case updateUserData(id, fName, lName, bio) =>        //TODO user object doesn't have id string
-    val uri = Uri("https://www.fakebook.com/user/request?") withQuery(F_User.lastNameString -> lName,
+    val uri = Uri("http://localhost:8080/users/request") withQuery(F_User.lastNameString -> lName,
                                                                       F_User.firstNameString -> fName,
                                                                       F_User.bioString -> bio,
                                                                       F_User.dobString -> "",
@@ -264,7 +282,7 @@ def receive = {
 
 
   case updateUserProfile(profId, des) =>      //TODO no identifier for profile either
-    val uri = Uri("https://www.fakebook.com/profile?") withQuery( F_UserProfile.profilePictureString -> "",
+    val uri = Uri("http://localhost:8080/profile") withQuery( F_UserProfile.profilePictureString -> "",
                                                                   // F_User.changableParameters -> ,
                                                                   F_UserProfile.descriptionString -> des)
     log.info("=>> updateUserProfile sending request...")
@@ -286,7 +304,7 @@ def receive = {
 
 
   case updatePictureData(pName, pDes, userId, pId) =>     //TODO no way to identify picture without unique picture id
-    val uri = Uri("https://www.fakebook.com/picture?") withQuery( F_Picture.ownerString -> userId.toString(16),
+    val uri = Uri("http://localhost:8080/picture") withQuery( F_Picture.ownerString -> userId.toString(16),
                                                                   F_Picture.nameString -> pName,
                                                                   F_Picture.descriptionString -> pDes,
                                                                   //F_Picture.changableParameters -> ,
@@ -309,7 +327,7 @@ def receive = {
     }
 
   case updateAlbumData(userId, albmId, albmName, albmDes) =>
-    val uri = Uri("https://www.fakebook.com/album?") withQuery( F_Album.ownerString -> userId.toString(16),
+    val uri = Uri("http://localhost:8080/album") withQuery( F_Album.ownerString -> userId.toString(16),
                                                                 F_Album.nameString -> albmName,
                                                                 //F_Album.changableParameters ->
                                                                 F_Album.descriptionString -> albmDes)
@@ -331,7 +349,7 @@ def receive = {
     }
 
   case updatePost(id, postId) =>
-    val uri = Uri("https://www.fakebook.com/post?") withQuery(F_Post.contentsString -> "",
+    val uri = Uri("http://localhost:8080/post") withQuery(F_Post.contentsString -> "",
                                                               F_Post.creatorString -> id.toString(16),
                                                               F_Post.locationType -> "",
                                                               F_Post.locationTypeString -> "",
@@ -357,7 +375,7 @@ def receive = {
     }
 
   case updatePageData(userId, pName, pDes) =>         //TODO no unique page ID to identify it
-    val uri = Uri("https://www.fakebook.com/page?") withQuery(F_Page.joinPageString -> "",
+    val uri = Uri("http://localhost:8080/page") withQuery(F_Page.joinPageString -> "",
                                                               F_Page.leavePageString -> "",
                                                               F_Page.newUserString -> "",
                                                               F_Page.nameString -> pName,
@@ -385,7 +403,7 @@ def receive = {
 
   //get operations
   case getUserData(id) =>             //TODO no unique user id in user object in F_User
-    val uri = Uri("https://www.fakebook.com/user?") withQuery(F_User.lastNameString -> "",
+    val uri = Uri("http://localhost:8080/users") withQuery(F_User.lastNameString -> "",
                                                               F_User.firstNameString -> "",
                                                               F_User.bioString -> "",
                                                               F_User.dobString -> "",
@@ -413,7 +431,7 @@ def receive = {
 
 
   case getUserProfile(id) =>
-    val uri = Uri("https://www.fakebook.com/profile?") withQuery( F_UserProfile.profilePictureString -> "",
+    val uri = Uri("http://localhost:8080/profile") withQuery( F_UserProfile.profilePictureString -> "",
                                                                   // F_User.changableParameters -> ,
                                                                   F_UserProfile.descriptionString -> "")
     log.info("=>> getUserProfile sending request...")
@@ -435,7 +453,7 @@ def receive = {
 
 
   case getPictureData(id, picId) =>              //TODO picture object doesn't have uniqueID for pic identification
-    val uri = Uri("https://www.fakebook.com/picture?") withQuery( F_Picture.ownerString -> id.toString(16),
+    val uri = Uri("http://localhost:8080/picture") withQuery( F_Picture.ownerString -> id.toString(16),
                                                                   F_Picture.nameString -> "",
                                                                   F_Picture.descriptionString -> "",
                                                                   //F_Picture.changableParameters -> ,
@@ -458,7 +476,7 @@ def receive = {
     }
 
   case getAlbumData(userId, albmId) =>
-    val uri = Uri("https://www.fakebook.com/album?") withQuery( F_Album.ownerString -> userId.toString(16),
+    val uri = Uri("http://localhost:8080/album") withQuery( F_Album.ownerString -> userId.toString(16),
                                                                 F_Album.nameString -> "",
                                                                 //F_Album.changableParameters ->
                                                                 F_Album.descriptionString -> "")
@@ -480,7 +498,7 @@ def receive = {
     }
 
   case getPost(id, postId) =>
-    val uri = Uri("https://www.fakebook.com/post?") withQuery(F_Post.contentsString -> "",
+    val uri = Uri("http://localhost:8080/post") withQuery(F_Post.contentsString -> "",
                                                               F_Post.creatorString -> id.toString(16),
                                                               F_Post.locationType -> "",
                                                               F_Post.locationTypeString -> "",
@@ -506,7 +524,7 @@ def receive = {
     }
 
   case getPageData(id) =>    //TODO no unique page id in page object in F_Page
-    val uri = Uri("https://www.fakebook.com/page?") withQuery(F_Page.joinPageString -> "",
+    val uri = Uri("http://localhost:8080/page") withQuery(F_Page.joinPageString -> "",
                                                               F_Page.leavePageString -> "",
                                                               F_Page.newUserString -> "",
                                                               F_Page.nameString -> "",
@@ -534,7 +552,7 @@ def receive = {
 
   //Delete operations
   case deleteUser(id) =>
-    val uri = Uri("https://www.fakebook.com/user?") withQuery(F_User.lastNameString -> "",
+    val uri = Uri("http://localhost:8080/users") withQuery(F_User.lastNameString -> "",
                                                               F_User.firstNameString -> "",
                                                               F_User.bioString -> "",
                                                               F_User.dobString -> "",
@@ -561,7 +579,7 @@ def receive = {
     }
 
   case deletePicture(userId, pId) =>        //TODO no way to identify picture without pic ID
-    val uri = Uri("https://www.fakebook.com/picture?") withQuery( F_Picture.ownerString -> userId.toString(16),
+    val uri = Uri("http://localhost:8080/picture") withQuery( F_Picture.ownerString -> userId.toString(16),
                                                                   F_Picture.nameString -> "",
                                                                   F_Picture.descriptionString -> "",
                                                                   //F_Picture.changableParameters -> ,
@@ -584,7 +602,7 @@ def receive = {
     }
 
   case deleteAlbum(userId, albmId) =>
-    val uri = Uri("https://www.fakebook.com/album?") withQuery( F_Album.ownerString -> userId.toString(16),
+    val uri = Uri("http://localhost:8080/album") withQuery( F_Album.ownerString -> userId.toString(16),
                                                                 F_Album.nameString -> "",
                                                                 //F_Album.changableParameters ->
                                                                 F_Album.descriptionString -> "")
@@ -606,7 +624,7 @@ def receive = {
     }
 
   case deletePost(id, postId) =>
-    val uri = Uri("https://www.fakebook.com/post?") withQuery(F_Post.contentsString -> "",
+    val uri = Uri("http://localhost:8080/post") withQuery(F_Post.contentsString -> "",
                                                               F_Post.creatorString -> id.toString(16),
                                                               F_Post.locationType -> "",
                                                               F_Post.locationTypeString -> "",
@@ -632,7 +650,7 @@ def receive = {
     }
 
   case deletePage(id) =>        //TODO no user id in F_User objecr
-    val uri = Uri("https://www.fakebook.com/page?") withQuery(F_Page.joinPageString -> "",
+    val uri = Uri("http://localhost:8080/page") withQuery(F_Page.joinPageString -> "",
                                                               F_Page.leavePageString -> "",
                                                               F_Page.newUserString -> "",
                                                               F_Page.nameString -> "",
@@ -662,7 +680,7 @@ def receive = {
 
   //Friend operations
   case sendFriendReq(id1, id2) =>
-    val uri = Uri("https://www.fakebook.com/user/resuest?") withQuery()  //send user id self and requested users
+    val uri = Uri("http://localhost:8080/user/resuest") withQuery()  //send user id self and requested users
     log.info("=>> sendFriendRequest, sending request...")
     val pipeline = sendReceive ~> unmarshal[F_Page]
     val responseFuture = pipeline {Put(uri)}
