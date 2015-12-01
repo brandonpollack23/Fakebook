@@ -35,7 +35,7 @@ case class updateAlbumData(useId: BigInt, albmId: BigInt, albmName: String, albm
 
 case class updatePost(id: BigInt, postID: BigInt, locationType: String, contents: String)
 
-case class updatePageData(userId: BigInt, pName: String, pDes: String)
+case class updatePageData(userId: BigInt, pageID:BigInt , pName: String, pDes: String)
 
 case class getUserData(id: BigInt)
 
@@ -109,11 +109,11 @@ case class postDeleted(res: F_Post)
 
 case class pageDeleted(res: F_Page)
 
-case class pictureDeleted(res: BigInt)
+case class pictureDeleted(res: String)
 
-case class albumDeleted(res: F_Album)
+case class albumDeleted(res: String)
 
-case class profileDeleted(res: F_UserProfile)
+case class profileDeleted(res: String)
 
 case class friendRequestSent()
 

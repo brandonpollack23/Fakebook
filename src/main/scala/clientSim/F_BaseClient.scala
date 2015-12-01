@@ -1,49 +1,22 @@
 package clientSim
 
-import akka.io.IO
-import spray.json
+
 import system.{MyJsonProtocol, F_Server}
-
-//import spray.json._
 import spray.http._
-import HttpMethods._
-import spray.can.Http
-//import akka.pattern.ask
-//import akka.util.Timeout
-//import scala.concurrent._
-//import scala.concurrent.Future
-//import scala.concurrent.duration._
-//import spray.json.{JsonFormat, DefaultJsonProtocol}
-//import scala.concurrent.ExecutionContext.Implicits.global._
-
 import graphnodes._
 import akka.actor._
-import akka.util.Timeout
 import akka.actor.Actor
-import akka.actor.ActorSystem
-import spray.http._
 import spray.client.pipelining._
 import spray.httpx.SprayJsonSupport
 import spray.client.pipelining.sendReceive
 import scala.util.{Success, Failure}
-import MyJsonProtocol._
-import scala.concurrent.duration._
 import java.text.SimpleDateFormat
 import java.util.Date
 import MatchClasses._
-
-import scala.concurrent.Future
 import scala.concurrent.duration._
-
 import akka.actor.ActorSystem
 import akka.util.Timeout
-import akka.pattern.ask
-import akka.io.IO
-
-import spray.can.Http
 import spray.http._
-import HttpMethods._
-
 import MyJsonProtocol._
 import spray.json._
 
@@ -281,14 +254,15 @@ def receive = {
 
     }
 
-  case updatePageData(userId, pName, pDes) =>         //TODO no unique page ID to identify it
-    val uri = Uri("http://localhost:8080/page/") withQuery(F_Page.joinPageString -> "",
-                                                              F_Page.leavePageString -> "",
-                                                              F_Page.newUserString -> "",
-                                                              F_Page.nameString -> pName,
-                                                              F_Page.descriptionString -> pDes,
-                                                              //F_Page.changableParameters -> ,
-                                                              F_Page.ownerString -> userId.toString(16))
+  case updatePageData(userId, pageId, pName, pDes) =>
+    val uri = Uri("http://localhost:8080/page/"+pageId.toString(16)) withQuery(F_Page.ownerString -> userId.toString(16),
+                                                                              F_Page.nameString -> pName,
+                                                                              F_Page.descriptionString -> pDes,
+                                                                              F_Page.joinPageString -> "",
+                                                                               F_Page.leavePageString -> "",
+                                                                                F_Page.newUserString -> "")
+                                                                                //F_Page.changableParameters -> ,
+
     log.info("=>> updatePageData sending request...")
     var replyTo = sender
     val pipeline = sendReceive ~> unmarshal[String]
@@ -455,7 +429,7 @@ def receive = {
     responseFuture onComplete {
       case Success(jsonRef) =>
         log.info("deletePicture successful!!")
-        replyTo ! pictureDeleted(pId)
+        replyTo ! pictureDeleted(jsonRef)
 
 
       case Failure(error) =>
@@ -473,7 +447,7 @@ def receive = {
     responseFuture onComplete {
       case Success(jsonRef) =>
         log.info("deleteAlbum successful!!")
-        replyTo ! albumDeleted(jsonRef.parseJson.convertTo[F_Album])
+        replyTo ! albumDeleted(jsonRef)
 
 
       case Failure(error) =>

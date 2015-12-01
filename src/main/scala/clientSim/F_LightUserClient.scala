@@ -9,13 +9,11 @@ import scala.util.Random
 import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
 
-//TODO there is no unique ID in user profile to pass
-//TODO way to know a post created is on a profile or a page by its return type
 
 
 class F_LightUserClient() extends Actor with ActorLogging{
 
-  log.info("=> *Light Client* Logging Started")
+  log.info("=> *AverageClient* Logging Started")
 
   //parameters for User
   var firstName:String = "Ali"
@@ -58,7 +56,8 @@ class F_LightUserClient() extends Actor with ActorLogging{
 
   var myProfPosts = List[BigInt]()
   var myPagePosts = List[BigInt]()
-  var myPages = List[F_Page]()
+  var myPosts = List[BigInt]()
+  var myPages = List[BigInt]()
   var myPics = List[BigInt]()
   var myAlbums = List[BigInt]()
 
@@ -69,6 +68,7 @@ class F_LightUserClient() extends Actor with ActorLogging{
 
   def receive ={
 
+
     case Begin =>
       log.info("=> *Begin* match, requesting createUser")
       baseRef ! createUser(firstName, lastName, bio, age, dobDate)
@@ -76,13 +76,13 @@ class F_LightUserClient() extends Actor with ActorLogging{
     case userCreated(res) =>
       log.info("=> User creation request complete at end user")
       user_ME = res
-      self !  Simulate //getUserProfile(user_ME.userID)
+      baseRef !  getUserProfile(user_ME.profileID)
 
-    /*    case userProfileRetrieved(res) =>
-          log.info("=> UserProfile retrieved successfully")
-          profile_ME = res
-          baseRef ! Simulate
-    */
+    case userProfileRetrieved(res) =>
+      log.info("=> UserProfile retrieved successfully")
+      profile_ME = res
+      self ! Simulate
+
     case Simulate =>
       log.info("=> Simulation started")
       val system = ActorSystem("MySystem")
@@ -96,35 +96,35 @@ class F_LightUserClient() extends Actor with ActorLogging{
       {
         val z = Random.nextInt(100)
         if (z < 25) {
-          baseRef ! createPost(user_ME.userID, postContent, locationType1, profile_ME.profileID)
+          baseRef ! createPost(user_ME.userID, postContent, locationType1, user_ME.profileID)
         }
         if(z>=25 && z<50) {
-          if (myPage.ownerID != null)
-            baseRef ! createPost(user_ME.userID, postContent, locationType2, myPage.ownerID)
+          if (myPages.nonEmpty)
+            baseRef ! createPost(user_ME.userID, postContent, locationType2, myPages(0))
         }
         if (z >= 50 && z < 65) {
-          if (profile_ME.posts.nonEmpty)
-            baseRef ! getPost(user_ME.userID, profile_ME.posts(Random.nextInt(profile_ME.posts.length))) //from profile
+          if (myProfPosts.nonEmpty)
+            baseRef ! getPost(user_ME.userID, myProfPosts(Random.nextInt(myProfPosts.length))) //from profile
         }
         if(z >= 65 && z<75) {
-          if (myPage.posts.nonEmpty)
-            baseRef ! getPost(user_ME.userID, myPage.posts(Random.nextInt(myPage.posts.length))) //from page
+          if (myPagePosts.nonEmpty)
+            baseRef ! getPost(user_ME.userID, myPagePosts(Random.nextInt(myPagePosts.length))) //from page
         }
         if (z >= 75 && z < 85) {
-          if (profile_ME.posts.nonEmpty)
-            baseRef ! updatePost(user_ME.userID, profile_ME.posts(Random.nextInt(profile_ME.posts.length)), F_Post.locationProfile, "this is now updated!") //from profile
+          if (myProfPosts.nonEmpty)
+            baseRef ! updatePost(user_ME.userID, myProfPosts(Random.nextInt(myProfPosts.length)), locationType1, "this is now updated!") //from profile
         }
         if(z>=85 && z< 90){
-          if (myPage.posts.nonEmpty)
-            baseRef ! updatePost(user_ME.userID, myPage.posts(Random.nextInt(myPage.posts.length)), F_Post.locationProfile, "this is now updated!") //from page
+          if (myPagePosts.nonEmpty)
+            baseRef ! updatePost(user_ME.userID, myPagePosts(Random.nextInt(myPagePosts.length)), locationType2, "this is now updated!") //from page
         }
         if(z>=90 && z<= 95) {
-          if (profile_ME.posts.nonEmpty)
-            baseRef ! deletePost(user_ME.userID, profile_ME.posts(Random.nextInt(profile_ME.posts.length))) //from profile
+          if (myProfPosts.nonEmpty)
+            baseRef ! deletePost(user_ME.userID, myProfPosts(Random.nextInt(myProfPosts.length))) //from profile
         }
         else{
-          if (myPage.posts.nonEmpty)
-            baseRef ! deletePost(user_ME.userID, myPage.posts(Random.nextInt(myPage.posts.length))) //from page
+          if (myPagePosts.nonEmpty)
+            baseRef ! deletePost(user_ME.userID, myPagePosts(Random.nextInt(myPagePosts.length))) //from page
         }
       }
 
@@ -136,8 +136,8 @@ class F_LightUserClient() extends Actor with ActorLogging{
         if(y<=70) {
           val z = Random.nextInt(100)
           if (z <= 50) {
-            val indx = Random.nextInt(profile_ME.albumIDs.length)
-            baseRef ! uploadPicture(pName, pDes, profile_ME.albumIDs(indx), user_ME.userID)
+            //val indx = Random.nextInt(profile_ME.albumIDs.length)
+            baseRef ! uploadPicture(pName, pDes, profile_ME.albumIDs(0), user_ME.userID)
           }
           if (z > 50 && z < 75)
             if(myPics.nonEmpty){
@@ -168,9 +168,9 @@ class F_LightUserClient() extends Actor with ActorLogging{
             baseRef ! updateAlbumData(user_ME.userID, profile_ME.albumIDs(indx), albmName1, albmDes1 )
           }
           else {
-            val indx = Random.nextInt(profile_ME.albumIDs.length)
-            // if(indx!=0)
-            // baseRef ! deleteAlbum(user_ME.userID, profile_ME.albumIDs(indx))  //unable to update profile_ME album list
+
+            if(myAlbums.nonEmpty)
+              baseRef ! deleteAlbum(user_ME.userID, myAlbums.head)  //unable to update profile_ME album list
           }
         }
       }
@@ -197,11 +197,14 @@ class F_LightUserClient() extends Actor with ActorLogging{
         if (z <= 50)
           baseRef ! createPage(user_ME.userID, pageName, pageDes)
         if (z > 50 && z < 75)
-          baseRef ! getPageData(user_ME.userID)
+          if(myPages.nonEmpty)
+            baseRef ! getPageData(myPages.head)
         if (z >= 75 && z < 90)
-          baseRef ! updatePageData(user_ME.userID, pageName1, pageDes1)
-        else
-          baseRef ! deletePage(user_ME.userID)
+          if(myPages.nonEmpty)
+            baseRef ! updatePageData(user_ME.userID, myPages.head, pageName1, pageDes1)
+          else
+          if(myPages.nonEmpty)
+            baseRef ! deletePage(myPages.head)
 
       }
       if(x>=90)//do something about friendList - 10%
@@ -214,11 +217,13 @@ class F_LightUserClient() extends Actor with ActorLogging{
       if(locationType.equalsIgnoreCase("profile")){
         log.info("=> Created profile post received at end user")
         myProfPosts ::= res.postID
+
       }
 
       if(locationType.equalsIgnoreCase("page")) {
         log.info("=> Created page post received at end user")
         myPagePosts ::= res.postID
+
       }
 
     case postEdited(res) =>
@@ -229,7 +234,8 @@ class F_LightUserClient() extends Actor with ActorLogging{
 
     case postDeleted(res) =>
       log.info("=> postDelete comletion received at end user")
-
+      myPagePosts = myPagePosts.filter(_!=res.postID)
+      myProfPosts = myProfPosts.filter(_!=res.postID)
 
     case userEdited(res) =>
       log.info("=> User Data received at end user")
@@ -280,7 +286,7 @@ class F_LightUserClient() extends Actor with ActorLogging{
 
     case pageCreated(res) =>
       log.info("=> Page created, completion received at end user")
-      myPages ::= res
+      myPages ::= res.ID
 
     case pageEdited(res) =>
       log.info("=> Page edited, completion received at end user")
@@ -290,9 +296,14 @@ class F_LightUserClient() extends Actor with ActorLogging{
 
     case pageDeleted(res) =>
       log.info("=> Page deleted, completion received at user end")
-
+      myPages = myPages.filter(_!=res.ID)
+    case userDeleted(res)=>
+      log.info("=> User has been deleted succesfully ")
 
   }
+
+
+
 
 
 
