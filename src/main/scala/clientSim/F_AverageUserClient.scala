@@ -40,7 +40,7 @@ class F_AverageUserClient() extends Actor with ActorLogging{
   var pageDes :String = "All about UF"
   var pageName1:String = "new Gator Times"
   var pageDes1:String = "and much more"
-  var myPage = F_Page(pageName, pageDes, new Date(1900,1,1), List[BigInt](), List[BigInt](), List[BigInt](), BigInt(0), BigInt(0))
+  var myPage = F_Page(pageName, pageDes, new Date(1900,1,1), List[BigInt](), List[BigInt](), List[BigInt](), BigInt(0), BigInt(0),BigInt(0))
 
 
   //default picture signature
@@ -58,7 +58,7 @@ class F_AverageUserClient() extends Actor with ActorLogging{
 
   var myProfPosts = List[BigInt]()
   var myPagePosts = List[BigInt]()
-  var myPages = List[F_Page]()
+  var myPages = List[BigInt]()
   var myPics = List[BigInt]()
   var myAlbums = List[BigInt]()
 
@@ -68,6 +68,9 @@ class F_AverageUserClient() extends Actor with ActorLogging{
   val baseRef = context.actorOf(Props(classOf[F_BaseClient]), "baseActor")
 
    def receive ={
+
+     case Test1 =>
+       baseRef ! updateUserData(user_ME.userID, firstName1, lastName1, bio1)
 
     case Begin =>
       log.info("=> *Begin* match, requesting createUser")
@@ -81,7 +84,8 @@ class F_AverageUserClient() extends Actor with ActorLogging{
     case userProfileRetrieved(res) =>
       log.info("=> UserProfile retrieved successfully")
       profile_ME = res
-      baseRef ! Simulate
+     self ! Test1
+     // self ! Simulate
 
     case Simulate =>
       log.info("=> Simulation started")
@@ -96,7 +100,7 @@ class F_AverageUserClient() extends Actor with ActorLogging{
       {
         val z = Random.nextInt(100)
         if (z < 25) {
-          baseRef ! createPost(user_ME.userID, postContent, locationType1, profile_ME.profileID)
+          baseRef ! createPost(user_ME.userID, postContent, locationType2, user_ME.profileID)
         }
         if(z>=25 && z<50) {
           if (myPage.ownerID != null)
@@ -214,11 +218,13 @@ class F_AverageUserClient() extends Actor with ActorLogging{
       if(locationType.equalsIgnoreCase("profile")){
         log.info("=> Created profile post received at end user")
         myProfPosts ::= res.postID
+
       }
 
       if(locationType.equalsIgnoreCase("page")) {
        log.info("=> Created page post received at end user")
         myPagePosts ::= res.postID
+
       }
 
     case postEdited(res) =>
@@ -229,7 +235,8 @@ class F_AverageUserClient() extends Actor with ActorLogging{
 
     case postDeleted(res) =>
       log.info("=> postDelete comletion received at end user")
-
+      myPagePosts = myPagePosts.filter(_!=res.postID)
+      myProfPosts = myProfPosts.filter(_!=res.postID)
 
     case userEdited(res) =>
       log.info("=> User Data received at end user")
@@ -259,7 +266,7 @@ class F_AverageUserClient() extends Actor with ActorLogging{
 
     case pictureDeleted(res) =>
       log.info("=> Picture Delete request completion received at end user")
-      myPics = myPics.filter(_!=res.pictureID)
+      myPics = myPics.filter(_!=res)
 
 
     case albumCreated(res) =>
@@ -280,7 +287,7 @@ class F_AverageUserClient() extends Actor with ActorLogging{
 
     case pageCreated(res) =>
       log.info("=> Page created, completion received at end user")
-      myPages ::= res
+      myPages ::= res.ID
 
     case pageEdited(res) =>
       log.info("=> Page edited, completion received at end user")
@@ -291,6 +298,8 @@ class F_AverageUserClient() extends Actor with ActorLogging{
     case pageDeleted(res) =>
       log.info("=> Page deleted, completion received at user end")
 
+    case userDeleted(res)=>
+       log.info("=> User has been deleted succesfully ")
 
   }
 

@@ -40,7 +40,7 @@ class F_LightUserClient() extends Actor with ActorLogging{
   var pageDes :String = "All about UF"
   var pageName1:String = "new Gator Times"
   var pageDes1:String = "and much more"
-  var myPage = F_Page(pageName, pageDes, new Date(1900,1,1), List[BigInt](), List[BigInt](), List[BigInt](), BigInt(0), BigInt(0))
+  var myPage = F_Page(pageName, pageDes, new Date(1900,1,1), List[BigInt](), List[BigInt](), List[BigInt](), BigInt(0), BigInt(0),BigInt(0))
 
 
   //default picture signature
@@ -259,7 +259,7 @@ class F_LightUserClient() extends Actor with ActorLogging{
 
     case pictureDeleted(res) =>
       log.info("=> Picture Delete request completion received at end user")
-      myPics = myPics.filter(_!=res.pictureID)
+      myPics = myPics.filter(_!=res)
 
 
     case albumCreated(res) =>

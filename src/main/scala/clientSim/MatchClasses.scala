@@ -5,6 +5,10 @@ import graphnodes._
 
 object MatchClasses {
 
+  case class Test1()
+  case class Test2()
+  case class Test3()
+
 case class Begin()
 
 case class Simulate()
@@ -99,13 +103,13 @@ case class albumRetrieved(res: F_Album)
 
 case class profileRetrieved(res: F_UserProfile)
 
-case class userDeleted(res: F_User)
+case class userDeleted(res: String)
 
 case class postDeleted(res: F_Post)
 
 case class pageDeleted(res: F_Page)
 
-case class pictureDeleted(res: F_Picture)
+case class pictureDeleted(res: BigInt)
 
 case class albumDeleted(res: F_Album)
 
