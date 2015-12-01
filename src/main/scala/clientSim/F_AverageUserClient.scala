@@ -1,6 +1,6 @@
 package clientSim
 
-import java.text.SimpleDateFormat
+
 import java.util.Date
 import MatchClasses._
 import akka.actor._
@@ -8,8 +8,7 @@ import graphnodes._
 import scala.util.Random
 import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
-//import spray.json._
-//import spray.httpx.SprayJsonSupport
+
 //TODO there is no unique ID in user profile to pass
 //TODO way to know a post created is on a profile or a page by its return type
 
@@ -77,13 +76,13 @@ class F_AverageUserClient() extends Actor with ActorLogging{
     case userCreated(res) =>
       log.info("=> User creation request complete at end user")
       user_ME = res
-      self !  Simulate //getUserProfile(user_ME.userID)
+      baseRef !  getUserProfile(user_ME.profileID)
 
-/*    case userProfileRetrieved(res) =>
+    case userProfileRetrieved(res) =>
       log.info("=> UserProfile retrieved successfully")
       profile_ME = res
       baseRef ! Simulate
-*/
+
     case Simulate =>
       log.info("=> Simulation started")
       val system = ActorSystem("MySystem")

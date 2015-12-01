@@ -3,33 +3,11 @@ package clientSim
 
 import akka.actor.{Props, ActorRef, ActorSystem}
 import akka.actor.{Props, ActorRef, Actor, ActorLogging}
-import akka.testkit.TestActorRef
-import akka.util.Timeout
-import clientSim.MatchClasses.{Simulate, Begin}
-import system.workers.{F_PageProfileHandler, F_UserHandler, F_PictureHandler}
 import system._
-import spray.http._
-import akka.io.IO
 import spray.can.Http
-import spray.json._
-import DefaultJsonProtocol._
 import akka.io.IO
-
-import graphnodes._
 import akka.actor._
-import akka.util.Timeout
-import akka.actor.Actor
 import akka.actor.ActorSystem
-import spray.http._
-import spray.client.pipelining._
-import spray.json.AdditionalFormats
-import spray.httpx.SprayJsonSupport
-import spray.client.pipelining.sendReceive
-import scala.util.{Success, Failure}
-import MyJsonProtocol._
-import scala.concurrent.duration._
-import java.text.SimpleDateFormat
-import java.util.Date
 import MatchClasses._
 
 
@@ -58,7 +36,11 @@ object TestMain {
     var i:Int = 0
     var userRef: ActorRef = null
 
-    while(i<heavy) {
+    userRef = system1.actorOf(Props(new F_AverageUserClient()), "normal_user_client")
+    userRef ! Begin
+
+
+/*    while(i<heavy) {
 
       userRef = system1.actorOf(Props(new F_HeavyUserClient()), "heavy_user_client"+i)
       userRef ! Begin
@@ -80,7 +62,7 @@ object TestMain {
       userRef ! Begin
       i += 1
     }
-
+*/
 
 
  }
