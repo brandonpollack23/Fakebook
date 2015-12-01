@@ -84,7 +84,7 @@ trait F_ListenerService extends HttpService {
                     }
                   } ~
                   detach() {
-                    extractRequestContext { request => complete(genericPost(request, HandleFriendRequest)) }
+                    extractRequestContext { request => complete(genericPost(request, UpdateUserData)) }
                   }
               } ~
               delete {
