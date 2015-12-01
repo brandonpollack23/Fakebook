@@ -418,13 +418,7 @@ def receive = {
     }
 
   case getPageData(id) =>    //TODO no unique page id in page object in F_Page
-    val uri = Uri("http://localhost:8080/page") withQuery(F_Page.joinPageString -> "",
-                                                              F_Page.leavePageString -> "",
-                                                              F_Page.newUserString -> "",
-                                                              F_Page.nameString -> "",
-                                                              F_Page.descriptionString -> "",
-                                                              //F_Page.changableParameters -> ,
-                                                              F_Page.ownerString -> "")
+    val uri = Uri("http://localhost:8080/page/" + id.toString(16))
     log.info("=>> getPageData, sending request...")
     var replyTo = sender
     val pipeline = sendReceive ~> unmarshal[String]
