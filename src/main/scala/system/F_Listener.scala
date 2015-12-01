@@ -217,7 +217,7 @@ trait F_ListenerService extends HttpService {
    * @return returns a route for thed spray routing to go through and side effects the complete needed
    */
   def genericGet(req: RequestContext, messageConstructor: (BigInt) => GetInfo) = {
-    val id = req.unmatchedPath.toString
+    val id = req.unmatchedPath.dropChars(1).toString
 
     if (!id.contains("/")) { //if this is the last element only
       try {
@@ -251,7 +251,7 @@ trait F_ListenerService extends HttpService {
    * @return
    */
   def genericPost(req: RequestContext, messageConstructor: (BigInt, HttpRequest) => PostInfo) = {
-    val id = req.unmatchedPath.toString
+    val id = req.unmatchedPath.dropChars(1).toString
 
     if (!id.contains("/")) {
       try {
@@ -306,7 +306,7 @@ trait F_ListenerService extends HttpService {
    * @return route
    */
   def genericDelete(req: RequestContext, messageConstructor: (BigInt) => DeleteInfo) = {
-    val id = req.unmatchedPath.toString
+    val id = req.unmatchedPath.dropChars(1).toString
 
     if (!id.contains("/")) {
       try {
@@ -339,7 +339,7 @@ trait F_ListenerService extends HttpService {
    * @return something?
    */
   def getImage(req: RequestContext) = {
-    val id = req.unmatchedPath.toString
+    val id = req.unmatchedPath.dropChars(1).toString
 
     if (!id.contains("/")) { //if this is the last element only
       try {
