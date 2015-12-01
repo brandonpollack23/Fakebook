@@ -8,7 +8,8 @@ case class F_Page(name: String, description: String,
                    posts: List[BigInt],
                    albumIDs: List[BigInt],
                    pictureID: BigInt,
-                   ownerID: BigInt)
+                   ownerID: BigInt,
+                   ID: BigInt)
 
 object F_Page {
   val joinPageString = "join"
