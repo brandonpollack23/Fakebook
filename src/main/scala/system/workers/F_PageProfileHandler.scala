@@ -322,7 +322,7 @@ object F_PageProfileHandler {
    * @param id id
    * @return exception
    */
-  private def noSuchProfileException(id: Seq[BigInt]) = new NoSuchElementException("there is no profile entry for " + id.mkString(", "))
+  private def noSuchProfileException(id: Seq[BigInt]) = new NoSuchElementException("there is no profile entry for " + id.map(x => x.toString(16)).mkString(", "))
 
   /**
    * message to send when picture id does not exist
@@ -336,7 +336,7 @@ object F_PageProfileHandler {
    * @param id id
    * @return exception
    */
-  private def noSuchPostException(id: Seq[BigInt]) = new NoSuchElementException("there is no post entry for " + id.mkString(", "))
+  private def noSuchPostException(id: Seq[BigInt]) = new NoSuchElementException("there is no post entry for " + id.map(x => x.toString(16)).mkString(", "))
 
   /**
    * message to send when picture id does not exist
