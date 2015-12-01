@@ -174,13 +174,12 @@ def receive = {
   case updateUserData(id, fName, lName, bio) =>        //TODO user object doesn't have id string
     val uri = Uri("http://localhost:8080/users/"+id.toString(16)) withQuery(F_User.lastNameString -> lName,
                                                                       F_User.firstNameString -> fName,
-                                                                      F_User.bioString -> bio)
-                                                                     // F_User.dobString -> "",
-                                                                      //F_User.ageString -> "")
-                                                                      // F_User.changableParameters -> ,
-                                                                      //F_User.friendRequestString -> "",
-                                                                      //F_User.acceptFriendString -> "",
-                                                                      //F_User.friendRemoveString -> "")
+                                                                      F_User.bioString -> bio,
+                                                                      F_User.dobString -> dateFormatter.format(new Date),
+                                                                      F_User.ageString -> "42",
+                                                                      F_User.friendRequestString -> "",
+                                                                      F_User.acceptFriendString -> "",
+                                                                      F_User.friendRemoveString -> "")
     log.info("=>> updateUserData, sending request...")
     var replyTo = sender
     val pipeline = sendReceive ~> unmarshal[String]
