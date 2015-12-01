@@ -130,8 +130,8 @@ class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
               case `bioString` => updateCurrentUserInstance(user.copy(biography = value), params, parametersRemaining.tail)
               case `ageString` => updateCurrentUserInstance(user.copy(age = value.toInt), params, parametersRemaining.tail)
               case `dobString` => updateCurrentUserInstance(user.copy(dateOfBirth = dateFormatter.parse(value)), params, parametersRemaining.tail)
-              case x @ `friendRequestString` if params.get(x).get == "true" =>
-                self ! HandleFriendRequest(id, request)
+              case x @ `friendRequestString` =>
+                if (params.get(x).get == "true")self ! HandleFriendRequest(id, request)
                 user //NOTE: when it is a friend request other actions stop and you have to get the user again to see the updated list
               case _ => throw new IllegalArgumentException("there is no case to handle such parameter in the list (system issue)")
             }
