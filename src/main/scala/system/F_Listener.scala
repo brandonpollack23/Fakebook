@@ -239,7 +239,7 @@ trait F_ListenerService extends HttpService {
       }
     }
     else {
-      //log.debug("uri not formatted correctly for a get")
+      log.debug("uri not formatted correctly for a get")
       HttpResponse(NotFound, "The requested URI cannot be serviced")
     }
   }
@@ -273,7 +273,7 @@ trait F_ListenerService extends HttpService {
       }
     }
     else {
-      //log.debug("uri not formatted correctly for a post")
+      log.debug("uri not formatted correctly for a post")
       HttpResponse(NotFound, "The requested URI cannot be serviced")
     }
   }
@@ -295,6 +295,7 @@ trait F_ListenerService extends HttpService {
       }
     } catch {
       case ex: TimeoutException =>
+        log.debug("uri not formatted correctly for PUT")
         HttpResponse(ServiceUnavailable, "The server is under heavy load and cannot currently process your request")
     }
   }
@@ -328,7 +329,7 @@ trait F_ListenerService extends HttpService {
       }
     }
     else {
-      //log.debug("uri not formatted correctly for delete")
+      log.debug("uri not formatted correctly for delete")
       HttpResponse(NotFound, "The requested URI cannot be serviced")
     }
   }
@@ -360,7 +361,10 @@ trait F_ListenerService extends HttpService {
           HttpResponse(ServiceUnavailable, "The server is under heavy load and cannot currently process your request")
       }
     }
-    else HttpResponse(NotFound, "The requested URI cannot be serviced")
+    else {
+      log.debug("uri not formatted correctly for getImage")
+      HttpResponse(NotFound, "The requested URI cannot be serviced")
+    }
   }
 }
 
