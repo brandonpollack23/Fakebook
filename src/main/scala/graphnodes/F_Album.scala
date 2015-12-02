@@ -17,6 +17,7 @@ case class F_AlbumE(name: Array[Byte], description: Array[Byte],
                    images: Array[Byte])
 
 object F_Album {
+  //In creation query string
   val nameString = "name"
   val descriptionString = "description"
   val ownerString = "owner"

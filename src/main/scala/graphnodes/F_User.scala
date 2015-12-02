@@ -26,21 +26,23 @@ case class F_UserES(userE: F_UserE, //server side F_User which contains some ext
                    sessionExpiration: Date = anHourFromNow) //the latest that the sessionAEScookie will work before authentication failed gets sent back, default is one hour later
 
 object F_User {
-  //needed in editing
+  //these are needed in creation
   val lastNameString = "lastname"
   val firstNameString = "firstname"
   val bioString = "bio"
   val ageString = "age"
   val dobString = "dob"
+
+  //these are used for friend request when doing a POST to edit the user, which is why they are in changable parameters
+  //if friendrequest=true then it checks to acceptfriend for true and if so it accepts, otherwise it ignores and removes info from the user about the requester
   val friendRequestString = "friendrequest"
   val acceptFriendString = "acceptfriend"
+
+  //This query is the only one needed when doing the uri for removing friends /users/remove/REMOVERID and this query's value contains the ID to remove
   val friendRemoveString = "remove"
 
-  val changableParameters = List(lastNameString, firstNameString, bioString, ageString, dobString, friendRequestString, acceptFriendString, friendRemoveString)
+  val changableParameters = List(lastNameString, firstNameString, bioString, ageString, dobString, friendRequestString, acceptFriendString)
 
-  val dateOfCreationString = "dateofcreation"
-
-  val authenticationSolutionString = "authenticationsolution"
   def anHourFromNow = {
     val cal = Calendar.getInstance; // creates calendar
     cal.setTime(new Date()); // sets calendar time/date
@@ -62,7 +64,7 @@ object F_User {
     def decryptUserE(key: Key) = {
       F_User(user.firstName.decryptRSA(key).byteArray2String, user.lastName.decryptRSA(key).byteArray2String, user.biography.decryptRSA(key).byteArray2String, user.age.decryptRSA(key).byteArray2Int,
         user.dateOfBirth.decryptRSA(key).streamDeserializeToObject[Date], user.dateOfCreation.decryptRSA(key).streamDeserializeToObject[Date],
-        user.friends.decryptRSA(key).streamDeserializeToObject[List[(BigInt, SecretKey]], user.friendRequests.decryptRSA(key).streamDeserializeToObject[List[BigInt]],
+        user.friends.decryptRSA(key).streamDeserializeToObject[List[(BigInt, SecretKey)]], user.friendRequests.decryptRSA(key).streamDeserializeToObject[List[BigInt]],
         user.profileID.decryptRSA(key).streamDeserializeToObject[BigInt], user.userID)
     }
   }

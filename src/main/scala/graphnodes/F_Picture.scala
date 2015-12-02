@@ -17,10 +17,11 @@ case class F_PictureE(name: Array[Byte], description: Array[Byte],
                      ownerID: BigInt)
 
 object F_Picture {
+  //in creation query string
   val nameString = "name"
   val descriptionString = "description"
   val ownerString = "owner"
-  val albumString = "album"
+  val albumString = "album" //albumID to move to is the value of this query
 
   val changableParameters = List(nameString, descriptionString, albumString)
 }

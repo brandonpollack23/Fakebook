@@ -26,14 +26,15 @@ case class F_PostE(contents: Array[Byte],
                   postID: BigInt) extends F_PostEOrPost
 
 object F_Post {
+  //these are the queries needed for creation
   val contentsString = "contents"
   val creatorString = "creator"
   val locationTypeString = "locationType" //string to show where this is, either in profiles or pages object
-    //these are the two options for input to locationTypeString in the Json Doc
-    val locationPage = "page"
-    val locationProfile = "profile"
-  //this is the actual BigInt that is the location
   val locationString = "location"
 
-  val changableParamaters = List(contentsString)
+  //these are the two options for value to locationTypeString in the Json Doc
+  val locationPage = "page"
+  val locationProfile = "profile"
+
+  val changableParamaters = List(contentsString) //this one doesnt need locationTypeString or locationString because the URI determines those
 }

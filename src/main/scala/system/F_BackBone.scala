@@ -74,6 +74,9 @@ class F_BackBone extends Actor with ActorLogging {
     case HandleFriendRequest(id, req) =>
       f_userHandler forward RequestFriend(id, req)
 
+    case RemoveFriend(id, req) =>
+      f_userHandler forward RemoveFriend(id, req)
+
     case AuthenticateUser(id, req) =>
       f_userHandler forward AuthenticateUser(id, req)
 

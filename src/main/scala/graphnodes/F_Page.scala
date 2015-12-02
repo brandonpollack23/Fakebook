@@ -12,6 +12,7 @@ case class F_Page(name: String, description: String,
                    ID: BigInt)
 
 object F_Page {
+  //in creation query string
   val joinPageString = "join"
   val leavePageString = "leave"
   val newUserString = "newuser"

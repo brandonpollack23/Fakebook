@@ -19,6 +19,7 @@ case class F_UserProfileE(posts: Array[Byte], //list of PostIDs
                           profileID: BigInt)
 
 object F_UserProfile {
+  //profiles are automatically created, you only use POSTs to update them after the fact (they are created when a newuser is)
   val profilePictureString = "profilepicture"
   val descriptionString = "description"
 
