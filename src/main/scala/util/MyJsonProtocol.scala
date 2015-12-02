@@ -1,4 +1,4 @@
-package system
+package util
 
 import java.util.Date
 
@@ -28,9 +28,16 @@ object MyJsonProtocol extends DefaultJsonProtocol {
   }
 
   implicit val userFormat = jsonFormat10(F_User.apply)
-  implicit val profileFormat = jsonFormat6(F_UserProfile.apply)
+  implicit val userEFormat = jsonFormat10(F_UserE.apply)
+  implicit val profileFormat = jsonFormat7(F_UserProfile.apply)
+  implicit val profileEFormat = jsonFormat7(F_UserProfileE.apply)
   implicit val postFormat = jsonFormat6(F_Post.apply)
+  implicit val postEFormat = jsonFormat6(F_PostE.apply)
   implicit val pictureFormat = jsonFormat7(F_Picture.apply)
+  implicit val pictureEFormat = jsonFormat7(F_PictureE.apply)
   implicit val albumFormat = jsonFormat7(F_Album.apply)
+  implicit val albumEFormat = jsonFormat7(F_AlbumE.apply)
   implicit val pageFormat = jsonFormat9(F_Page.apply)
+
+  private def jsByteVector(ba: Array[Byte]) = JsArray(ba.map(JsNumber(_)).toVector)
 }

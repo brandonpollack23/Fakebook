@@ -6,10 +6,10 @@ import akka.actor
 import akka.actor.{Props, ActorRef, ActorLogging, Actor}
 import akka.pattern.{pipe, ask}
 import akka.util.Timeout
-import graphnodes.{F_Post, F_UserProfile, F_Page}
+import graphnodes._
 import spray.http.{Uri, HttpRequest}
 import system.F_BackBone._
-import system.MyJsonProtocol
+import util.MyJsonProtocol
 
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
@@ -19,6 +19,7 @@ import MyJsonProtocol._
 
 import language.postfixOps
 
+//posts can be encrypted or unencrypted (ones on pages are public so unencrypted)
 class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
   import F_PageProfileHandler._
   import context.dispatcher
@@ -27,11 +28,11 @@ class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
 
   val pages = collection.mutable.Map[BigInt, F_Page]()
   val profiles = collection.mutable.Map[BigInt, F_UserProfile]()
-  val posts = collection.mutable.Map[BigInt, F_Post]()
+  val posts = collection.mutable.Map[BigInt, F_PostEOrPost]()
 
   def receive = {
     case GetProfileInfo(id) =>
-      val replyTo = sender
+      val replyTo = sender()
 
       profiles.get(id) match {
         case Some(prof) => Future(prof.toJson.compactPrint) pipeTo replyTo
@@ -39,7 +40,7 @@ class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
       }
 
     case GetPageInfo(id) =>
-      val replyTo = sender
+      val replyTo = sender()
 
       pages.get(id) match {
         case Some(page) => Future(page.toJson.compactPrint) pipeTo replyTo
@@ -47,10 +48,11 @@ class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
       }
 
     case GetPostInfo(id) =>
-      val replyTo = sender
+      val replyTo = sender()
 
       posts.get(id) match {
-        case Some(post) => Future(post.toJson.compactPrint) pipeTo replyTo
+        case Some(post: F_Post) => Future(post.toJson.compactPrint) pipeTo replyTo
+        case Some(post: F_PostE) => Future(post.toJson.compactPrint) pipeTo replyTo
         case None => replyTo ! noSuchPostFailure(id)
       }
 
@@ -85,7 +87,7 @@ class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
   def createUserProfile(userID: BigInt) = {
     val profileID = getUniqueRandomBigInt(profiles)
     val defaultAlbumID = (backbone ? CreateDefaultAlbum(userID)).mapTo[BigInt]
-    val defaultProfile = F_UserProfile(List[BigInt](), new Date, List[BigInt](Await.result(defaultAlbumID, 5 seconds)), defaultPictureID, "insert bio here", profileID)
+    val defaultProfile = F_UserProfile(List[BigInt](), new Date, List[BigInt](Await.result(defaultAlbumID, 5 seconds)), defaultPictureID, "insert bio here", userID, profileID)
     profiles.put(profileID, defaultProfile)
     profileID
   }
@@ -109,7 +111,7 @@ class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
     try {
       val newPage = (F_Page.apply _).tupled(getAllComponents)
       pages.put(pageID, newPage)
-      val replyTo = sender
+      val replyTo = sender()
       Future(newPage.toJson.compactPrint) pipeTo replyTo
     } catch {
       case ex: Exception =>
@@ -134,7 +136,7 @@ class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
 
     try {
       val newPost = (F_Post.apply _).tupled(getAllComponents)
-      val replyTo = sender
+      val replyTo = sender()
       posts.put(postID, newPost)
       Future(newPost.toJson.compactPrint) pipeTo replyTo
     } catch {
@@ -178,7 +180,7 @@ class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
 
       pages.put(id, updatedPage)
 
-      val replyTo = sender
+      val replyTo = sender()
 
       Future(updatedPage.toJson.compactPrint) pipeTo replyTo
     } catch {
@@ -215,7 +217,7 @@ class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
 
       profiles.put(id, updatedProfile)
 
-      val replyTo = sender
+      val replyTo = sender()
 
       Future(updatedProfile.toJson.compactPrint) pipeTo replyTo
     } catch {
@@ -241,19 +243,41 @@ class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
         }
       }
     }
+    def updateCurrentPostInstanceE(post: F_PostE, params: Uri.Query, parametersRemaining: List[String]): F_PostE = {
+      if(parametersRemaining.isEmpty) {
+        post
+      } else {
+        val currentParameter = parametersRemaining.head
+        params.get(currentParameter) match {
+          case Some(value) =>
+            currentParameter match {
+              case F_Post.`contentsString` => updateCurrentPostInstanceE(post.copy(contents = value.getBytes), params, parametersRemaining.tail)
+              case _ => throw new IllegalArgumentException("there is no case to handle such parameter in the list (system issue)")
+            }
+          case None =>
+            updateCurrentPostInstanceE(post, params, parametersRemaining.tail)
+        }
+      }
+    }
 
     try{
       val post = posts.getOrElse(id, throw noSuchPostException(List(id)))
 
       val params = request.uri.query
 
-      val updatedPost = updateCurrentPostInstance(post, params, F_Page.changableParameters)
+      val updatedPost = post match {
+        case post: F_Post => updateCurrentPostInstance(post, params, F_Page.changableParameters)
+        case post: F_PostE => updateCurrentPostInstanceE(post, params, F_Page.changableParameters)
+      }
 
       posts.put(id, updatedPost)
 
-      val replyTo = sender
+      val replyTo = sender()
 
-      Future(updatedPost.toJson.compactPrint) pipeTo replyTo
+      updatedPost match {
+        case x: F_Post => Future(x.toJson.compactPrint) pipeTo replyTo
+        case x: F_PostE => Future(x.toJson.compactPrint) pipeTo replyTo
+      }
     } catch {
       case ex: Exception =>
         sender ! actor.Status.Failure(ex)
@@ -263,7 +287,7 @@ class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
   def deletePage(id: BigInt) = {
     pages.remove(id) match {
       case Some(x) =>
-        x.albumIDs.foreach(backbone ! DeleteAlbum(_))
+        x.albumIDs.foreach(backbone ! DeleteAlbum(_)) //TODO make it so default album is even deleted!!!  best way is probobly special delete default album message
         x.posts.foreach(backbone ! DeletePost(_))
         sender ! "Page Deleted!"
       case None => sender ! noSuchPageFailure(id)

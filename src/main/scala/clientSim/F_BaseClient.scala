@@ -1,7 +1,7 @@
 package clientSim
 
 
-import system.{MyJsonProtocol, F_Server}
+import system.F_Server
 import spray.http._
 import graphnodes._
 import akka.actor._
@@ -9,6 +9,7 @@ import akka.actor.Actor
 import spray.client.pipelining._
 import spray.httpx.SprayJsonSupport
 import spray.client.pipelining.sendReceive
+import util.MyJsonProtocol
 import scala.util.{Success, Failure}
 import java.text.SimpleDateFormat
 import java.util.Date

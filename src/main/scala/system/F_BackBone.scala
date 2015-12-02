@@ -14,6 +14,13 @@ import scala.collection.mutable.Map
 class F_BackBone extends Actor with ActorLogging {
   import system.F_BackBone._
 
+  type F_AlbumE = String
+  type F_PageE = String
+  type F_Picture = String
+  type F_Post = String
+  type F_UserE = String
+  type F_UserProfile = String
+
   //NOTE better naming needed if distributed
   val f_pictureHandler = context.actorOf(F_PictureHandler.props(self), "pictuere_handler")
   val f_userHandler = context.actorOf(F_UserHandler.props(self), "user_handler")

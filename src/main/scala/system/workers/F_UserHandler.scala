@@ -10,6 +10,7 @@ import graphnodes.F_User
 import graphnodes.F_User._
 import spray.http.{HttpRequest, Uri}
 import system.F_BackBone._
+import util.MyJsonProtocol
 
 import scala.concurrent.{Future, Await}
 import scala.concurrent.duration._
@@ -18,7 +19,7 @@ import scala.language.postfixOps
 import scala.xml.MalformedAttributeException
 
 import spray.json._
-import system.MyJsonProtocol._
+import MyJsonProtocol._
 
 class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
   import F_UserHandler._

@@ -10,12 +10,13 @@ import akka.util.Timeout
 import graphnodes.{F_UserProfile, F_User, F_Picture, F_Album}
 import spray.http.{Uri, HttpRequest}
 import system.F_BackBone._
+import util.MyJsonProtocol
 
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
 
 import spray.json._
-import system.MyJsonProtocol._
+import MyJsonProtocol._
 
 import language.postfixOps
 
