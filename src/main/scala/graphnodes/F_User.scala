@@ -62,7 +62,7 @@ object F_User {
     def decryptUserE(key: Key) = {
       F_User(user.firstName.decryptRSA(key).byteArray2String, user.lastName.decryptRSA(key).byteArray2String, user.biography.decryptRSA(key).byteArray2String, user.age.decryptRSA(key).byteArray2Int,
         user.dateOfBirth.decryptRSA(key).streamDeserializeToObject[Date], user.dateOfCreation.decryptRSA(key).streamDeserializeToObject[Date],
-        user.friends.decryptRSA(key).streamDeserializeToObject[List[BigInt]], user.friendRequests.decryptRSA(key).streamDeserializeToObject[List[BigInt]],
+        user.friends.decryptRSA(key).streamDeserializeToObject[List[(BigInt, SecretKey]], user.friendRequests.decryptRSA(key).streamDeserializeToObject[List[BigInt]],
         user.profileID.decryptRSA(key).streamDeserializeToObject[BigInt], user.userID)
     }
   }
