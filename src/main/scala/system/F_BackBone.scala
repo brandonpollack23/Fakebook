@@ -74,6 +74,9 @@ class F_BackBone extends Actor with ActorLogging {
     case HandleFriendRequest(id, req) =>
       f_userHandler forward RequestFriend(id, req)
 
+    case AuthenticateUser(id, req) =>
+      f_userHandler forward AuthenticateUser(id, req)
+
     //PUT functions
     case PutImage(image) =>
       f_pictureHandler forward PutImage(image)
@@ -141,6 +144,9 @@ object F_BackBone {
   case class RequestFriend(requesterID: BigInt, httpRequest: HttpRequest) extends PostInfo //id from, query to
   case class HandleFriendRequest(acceptorID: BigInt, httpRequest: HttpRequest) extends PostInfo //id acceptor, query requester
   case class RemoveFriend(userID: BigInt, httpRequest: HttpRequest) extends PostInfo //restful id is remover, request is removed
+  //special authentication stuff
+  case class AuthenticateUser(userID: BigInt, httpRequest: HttpRequest) extends PostInfo
+  case class VerifyAuthentication(userID: BigInt, httpRequest: HttpRequest) extends PostInfo
 
   sealed trait PutInfo //note: you can use the routing DSL parameter seq to extract parameters!
   case class PutImage(httpRequest: HttpRequest) extends PutInfo//must send the original sender back the JSON object of the created image

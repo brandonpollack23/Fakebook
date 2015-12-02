@@ -7,7 +7,7 @@ import F_User._
 
 case class F_User(firstName: String, lastName: String, biography: String, age: Int,
                    dateOfBirth: Date, dateOfCreation: Date,
-                   friends: List[BigInt],
+                   friends: List[(BigInt, SecretKey)], //each friend is now tupled with their public secret key encrypted with your own private key
                    friendRequests: List[BigInt],
                    profileID: BigInt,
                    userID: BigInt)
@@ -26,12 +26,12 @@ case class F_UserES(userE: F_UserE, //server side F_User which contains some ext
                    sessionExpiration: Date = anHourFromNow) //the latest that the sessionAEScookie will work before authentication failed gets sent back, default is one hour later
 
 object F_User {
+  //needed in editing
   val lastNameString = "lastname"
   val firstNameString = "firstname"
   val bioString = "bio"
   val ageString = "age"
   val dobString = "dob"
-
   val friendRequestString = "friendrequest"
   val acceptFriendString = "acceptfriend"
   val friendRemoveString = "remove"
@@ -40,6 +40,7 @@ object F_User {
 
   val dateOfCreationString = "dateofcreation"
 
+  val authenticationSolutionString = "authenticationsolution"
   def anHourFromNow = {
     val cal = Calendar.getInstance; // creates calendar
     cal.setTime(new Date()); // sets calendar time/date

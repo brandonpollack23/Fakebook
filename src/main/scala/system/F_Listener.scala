@@ -4,22 +4,17 @@ import java.util.concurrent.TimeoutException
 
 import akka.actor._
 import akka.event.LoggingAdapter
+import akka.pattern.ask
 import akka.util.Timeout
-import spray.can.Http
-import spray.http.{HttpResponse, HttpRequest}
-import spray.routing._
 import spray.http.StatusCodes._
+import spray.http.{HttpRequest, HttpResponse}
+import spray.routing._
+import system.F_BackBone._
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
-
-import akka.pattern.ask
-
-import system.F_BackBone._
-
+import scala.language.postfixOps
 import scala.util.{Failure, Success}
-
-import language.postfixOps
 
 class F_Listener(backBoneActor: ActorRef, connectionHandler: ActorRef) extends Actor with F_ListenerService with ActorLogging {
   override def backbone: ActorRef = backBoneActor
@@ -60,6 +55,16 @@ trait F_ListenerService extends HttpService {
         complete("pong")
       } ~
         pathPrefix("users") {
+            pathPrefix("auth") {
+              pathPrefix("verify") {
+                detach() {
+                  extractRequestContext { request => complete(genericPost(request, VerifyAuthentication)) }
+                }
+              } ~
+              detach() {
+                extractRequestContext { request => complete(authenticateUser(request))}
+              }
+            } ~
             path("newuser") {
                 put {
                   detach() {
@@ -363,6 +368,32 @@ trait F_ListenerService extends HttpService {
     }
     else {
       log.debug("uri not formatted correctly for getImage")
+      HttpResponse(NotFound, "The requested URI cannot be serviced")
+    }
+  }
+
+  def authenticateUser(req: RequestContext) = {
+    val id = req.unmatchedPath.dropChars(1).toString
+
+    if(!id.contains("/")) {
+      try{
+        val idBig = BigInt(id, 16)
+        Await.ready((backbone ? VerifyAuthentication(idBig, req.request)).mapTo[String], timeout).value.get match {
+          case Success(httpresponse) =>
+            log.info("succefully authenticated " + idBig)
+            httpresponse
+          case Failure(ex) =>
+            log.error(ex, "get failed: " + GetImage + " for " + idBig)
+            HttpResponse(Forbidden, "You failed the authentication test")
+        }
+      } catch {
+        case e: NumberFormatException =>
+          log.info("illegally formatted id requested: " + id)
+          HttpResponse(BadRequest, "Numbers are formatted incorrectly")
+      }
+    }
+    else {
+      log.debug("uri not formatted correctly for verify auth")
       HttpResponse(NotFound, "The requested URI cannot be serviced")
     }
   }

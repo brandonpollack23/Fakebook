@@ -1,25 +1,26 @@
 package system.workers
 
 import java.util.{Date, MissingFormatArgumentException}
+import javax.crypto.KeyGenerator
 
 import akka.actor
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
-import graphnodes.F_User
 import graphnodes.F_User._
-import spray.http.{HttpRequest, Uri}
+import graphnodes.{F_User, F_UserES}
+import spray.http.HttpHeaders.Cookie
+import spray.http._
+import spray.http.StatusCodes._
+import spray.json._
 import system.F_BackBone._
-import util.MyJsonProtocol
+import util.Crypto._
+import util.MyJsonProtocol._
 
-import scala.concurrent.{Future, Await}
 import scala.concurrent.duration._
-
+import scala.concurrent.{Await, Future}
 import scala.language.postfixOps
 import scala.xml.MalformedAttributeException
-
-import spray.json._
-import MyJsonProtocol._
 
 class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
   import F_UserHandler._
@@ -27,7 +28,7 @@ class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
 
   implicit val timeout = Timeout(5 seconds)
 
-  val users: collection.mutable.Map[BigInt, F_User] = collection.mutable.Map()
+  val users: collection.mutable.Map[BigInt, F_UserES] = collection.mutable.Map()
 
   def receive: Receive = {
     case CreateUser(request) =>
@@ -69,6 +70,12 @@ class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
 
     case RemoveFriend(removerID, request) =>
       removeFriend(removerID, request)
+
+    case AuthenticateUser(id, request) =>
+      authenticateUser(id)
+
+    case VerifyAuthentication(id, request) =>
+      verifyAuthentication(id, request)
   }
 
   /**
@@ -241,6 +248,47 @@ class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
         sender ! actor.Status.Failure(ex)
     }
   }
+
+  /**
+   * This begins user authentication by sending them an SRNG number to encrypt for hte server to decrypt
+   * and storing that in the user's F_UserES object for later reference
+   * @param id user id
+   */
+  def authenticateUser(id: BigInt) {
+    val solutionNumber = BigInt(256, randomIDGenerator) // generate a number
+    users.get(id) match {
+      case Some(us) =>
+        users.put(id, us.copy(authenticationAnswer = solutionNumber))
+        val kgen = KeyGenerator.getInstance("AES")
+        kgen.init(128)
+        val aesKey = kgen.generateKey()
+        val encryptedNumber = solutionNumber.toByteArray.encryptAES(aesKey)
+        sender ! new String(encryptedNumber)
+      case None =>
+        sender ! noSuchUserFailure(id)
+    }
+  }
+
+  def verifyAuthentication(id: BigInt, request: HttpRequest) {
+    (users.get(id), request.uri.query.get(authenticationSolutionString)) match {
+      case (Some(us), Some(responseNumber)) =>
+        val solutionNumber = us.authenticationAnswer
+        if(BigInt(responseNumber, 16) == solutionNumber) {
+          //user authenticated, give them a cookie
+          val kgen = KeyGenerator.getInstance("AES")
+          kgen.init(128)
+          val aesKey = kgen.generateKey()
+          users.put(id, us.copy(sessionAESCookieDecrypter = aesKey))
+          val cookie = HttpCookie("authentication", new String(aesKey.getEncoded), secure = true)
+          sender ! HttpResponse(OK, "authentication success, please take the cookie", List[HttpHeader](Cookie(cookie)))
+        }
+      case (None, _) =>
+        sender ! noSuchUserFailure(id)
+      case (_, None) =>
+        sender ! actor.Status.Failure(new IllegalArgumentException("Missing authenticationsolution query"))
+    }
+  }
+
 }
 
 object F_UserHandler {

@@ -38,11 +38,23 @@ object Crypto {
       cipher.init(Cipher.ENCRYPT_MODE, key)
       cipher.doFinal(value)
     }
+
+    def encryptAES(key: Key) = {
+      val cipher = Cipher.getInstance("AES")
+      cipher.init(Cipher.ENCRYPT_MODE, key)
+      cipher.doFinal(value)
+    }
   }
 
   implicit class Decrypter(value: Array[Byte]) {
     def decryptRSA(key: Key) = {
       val cipher = Cipher.getInstance("RSA")
+      cipher.init(Cipher.DECRYPT_MODE, key)
+      cipher.doFinal(value)
+    }
+
+    def decryptAES(key: Key) = {
+      val cipher = Cipher.getInstance("AES")
       cipher.init(Cipher.DECRYPT_MODE, key)
       cipher.doFinal(value)
     }
