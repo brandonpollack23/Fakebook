@@ -1,0 +1,69 @@
+Final project crypto procedure
+
+//change to HTTPS (one line in config)
+
+all data put on the server is encrypted with the friend access key pair private key
+
+Every User has his/her own sets of keys:
+Identity key pair (for authentication)
+Friend access key (AES) which is stored by being encrypted with the public Identity key
+
+All data in graph nodes is stored as encrypted except authentication primitives etc
+this is in a new graphnode type denoted by teh trailing E eg F_UserE
+
+//Add Identity Public Key to F_UserE, current auth answer which is an SRNG used to authenticate against, and current AES auth, and session expiriation
+
+//create an F_*E case class for each node
+
+/*first thing is to add an authentication path which contains:
+POST /users/auth/ID
+	this path complete's with a SRNG number
+	then the user must encrypt the SRNG number with their Identity public key and send it back with 
+POST /users/auth/verify/ID can probably use the authenticate directive
+	then the server just decrypts with the public key on the sent back data in the header and if it matches SRNG you're authenticated and it completes with an auth cookie who contains,
+	"authentication"
+	the newly generated AES key is just the key itself in the cookie, it is sent securely over SSH so it should be ok
+	secure = true
+*/
+
+//change friendsList to be List[(BigInt/*this is the userID*/, Friend Access Public Key/*private identity key encrypted*/)]
+
+//pages are public
+
+//all get operations just do it and if you can decrypt it good for you (this can be changed to add another process just like above with a different cookie)
+
+//add comments as to which fields are required in query for mayank
+
+//create encrypt/decrypt functions for each graphnode like f_user has
+
+//add authorize funciton that checks for the appropiate cookie in the header for post or put data now begin with checking for an auth cookie (User access level)
+	//for put
+	//for post
+	//for delete
+
+//get rid of second step of authentication, when you store the GBigInt answer, haash it and store it, then with every request that would require authentication, check for the cookie just containing the answer, check it by hashing
+//dont forget to check when it expires
+
+go thorugh each handler and make sure the functionality is correct in each message/function
+
+Process for a friend request:
+Authenticate and get cookie
+send friend request gets the identity public key and encrypts your user friend request public key and sends that along with it
+handle friend request accept now gets the public key in F_User for identity and uses it to encrypt their own Friend Access Public Key and add that to requester's friend list at the same time adding the encrypted friend access key sent with the request to their friends list
+
+
+NOTES FOR MAYANK:
+RSA -> AES means an AES key that is encrypted with RSA is used to encrypt data so to use it you do this:
+when creating a user you provide a BigInt public RSA key to the user (for people to give you stuff with etc)
+you add friends by encrypting your AES key with that public key stored on your friends profile and sending the request as above
+	encrypt:
+	RSA private key on AES key
+	AES key on data
+	Decrypt
+	RSA private key on AES key
+	AES key on data 
+encrypt everything before sending with RSA -> AES
+everything is sent with JSON now, including updating values, empty strings mean no change, ill handle that
+F_posts need a query to tell it where it is (page/profile)
+page Post needs a query for adding a user, in this case no JSON entity is needed
+when looking at default album there is no need to decrypt, just convertTo[F_Album] insted of F_AlbumE, same with pictures on a page, don't decrypt just convertTo[F_Picture]
