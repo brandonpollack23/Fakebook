@@ -7,7 +7,7 @@ import akka.actor
 import akka.actor.{Props, ActorRef, ActorLogging, Actor}
 import akka.pattern.{pipe, ask}
 import akka.util.Timeout
-import graphnodes.{F_UserProfile, F_User, F_Picture, F_Album}
+import graphnodes._
 import spray.http.{Uri, HttpRequest}
 import system.F_BackBone._
 import util.MyJsonProtocol
@@ -26,8 +26,8 @@ class F_PictureHandler(backbone: ActorRef) extends Actor with ActorLogging {
 
   implicit val timeout = Timeout(5 seconds)
 
-  val albums = collection.mutable.Map[BigInt, F_Album]()
-  val pictures = collection.mutable.Map[BigInt, F_Picture]()
+  val albums = collection.mutable.Map[BigInt, F_AlbumE]()
+  val pictures = collection.mutable.Map[BigInt, F_PictureE]()
   val pictureData = collection.mutable.Map[BigInt, File]()
 
   val defaultPictureFile = new File("images/defaultpic.jpg")
@@ -36,7 +36,7 @@ class F_PictureHandler(backbone: ActorRef) extends Actor with ActorLogging {
 
   def receive = {
     case GetPictureInfo(id) =>
-      val replyTo = sender
+      val replyTo = sender()
 
       pictures.get(id) match {
         case Some(pic) => Future(pic.toJson.compactPrint) pipeTo replyTo
@@ -44,7 +44,7 @@ class F_PictureHandler(backbone: ActorRef) extends Actor with ActorLogging {
       }
 
     case GetAlbumInfo(id) =>
-      val replyTo = sender
+      val replyTo = sender()
 
       albums.get(id) match {
         case Some(alb) => Future(alb.toJson.compactPrint) pipeTo replyTo
@@ -68,7 +68,7 @@ class F_PictureHandler(backbone: ActorRef) extends Actor with ActorLogging {
 
     case CreateDefaultAlbum(ownerID) =>
       val id = getUniqueRandomBigInt(albums)
-      albums.put(id, F_Album("Default Album", "default album generated for you by Fakebook", new Date, isDefault = true, ownerID, id, List[BigInt]()))
+      albums.put(id, F_AlbumE("Default Album".getBytes, "default album generated for you by Fakebook".getBytes, new Date, isDefault =  true, ownerID, id, List[BigInt]()))
       sender ! id
 
     case UpdateImageData(id, request) =>
@@ -80,145 +80,119 @@ class F_PictureHandler(backbone: ActorRef) extends Actor with ActorLogging {
     case DeletePicture(id) =>
       deletePicture(id)
 
-    case DeleteAlbum(id) =>
-      deleteAlbum(id)
+    case DeleteAlbum(id, over) =>
+      deleteAlbum(id, over)
   }
 
   def updatePicture(id: BigInt, request: HttpRequest) = {
-    def updateCurrentUserInstance(picture: F_Picture, params: Uri.Query, parametersRemaining: List[String]): F_Picture = {
-      if(parametersRemaining.isEmpty) {
-        picture
-      } else {
-        val currentParameter = parametersRemaining.head
-        params.get(currentParameter) match {
-          case Some(value) =>
-            currentParameter match {
-              case F_Picture.`nameString` => updateCurrentUserInstance(picture.copy(name = value), params, parametersRemaining.tail)
-              case F_Picture.`descriptionString` => updateCurrentUserInstance(picture.copy(description = value), params, parametersRemaining.tail)
-              case F_Picture.`albumString` => updateCurrentUserInstance(picture.copy(containingAlbum = BigInt(value, 16)), params, parametersRemaining.tail)
-              case _ => throw new IllegalArgumentException("there is no case to handle such parameter in the list (system issue)")
+    def updateCurrentPicture(picture: F_PictureE, fields: Map[String, JsValue]): F_PictureE = {
+      if(fields.isEmpty) picture
+      else {
+        val currentField = fields.head
+        currentField._1 match {
+          case F_Picture.`nameField` => updateCurrentPicture(picture.copy(name = currentField._2.convertTo[Array[Byte]]), fields.tail)
+          case F_Picture.`descriptionField` => updateCurrentPicture(picture.copy(description = currentField._2.convertTo[Array[Byte]]), fields.tail)
+          case F_Picture.`albumField` =>
+            val newAlbumID = BigInt(currentField._2.toString(), 16)
+            val oldAlbumID = picture.containingAlbum
+            val oldAlbum = albums.get(oldAlbum).get
+            albums.get(newAlbumID) match {
+              case Some(alb) => albums.put(newAlbumID, alb.copy(images = picture.pictureID :: alb.images)) //put it in the new album
+              case None =>
+                throw noSuchAlbumException(List(newAlbumID)) //that isn't an album
             }
-          case None =>
-            updateCurrentUserInstance(picture, params, parametersRemaining.tail)
+            albums.put(oldAlbumID, oldAlbum.copy(images = oldAlbum.images.filter(_ != picture.pictureID))) //remove from old album
+            updateCurrentPicture(picture.copy(containingAlbum = newAlbumID), fields.tail)
+          case _ => updateCurrentPicture(picture, fields.tail)
         }
       }
     }
 
     try{
-      val user = pictures.getOrElse(id, throw noSuchPictureException(List(id)))
+      val picture = pictures.getOrElse(id, throw noSuchPictureException(List(id)))
 
-      val params = request.uri.query
+      val fields = request.entity.asString.parseJson.asJsObject.fields
 
-      val updatedPicture = updateCurrentUserInstance(user, params, F_Picture.changableParameters)
+      val updatedPicture = updateCurrentPicture(picture, fields)
 
       pictures.put(id, updatedPicture)
 
-      val replyTo = sender
+      val replyTo = sender()
 
-      Future(updatedPicture.toJson.compactPrint) pipeTo replyTo
+      Future(updatedPicture.toJson.compactPrint).mapTo[String] pipeTo replyTo
     } catch {
       case ex: Exception =>
         sender ! actor.Status.Failure(ex)
     }
   }
 
-  def updateAlbum(id: BigInt, request: HttpRequest) = {
-    def updateCurrentUserInstance(album: F_Album, params: Uri.Query, parametersRemaining: List[String]): F_Album = {
-      if(parametersRemaining.isEmpty) {
-        album
-      } else {
-        val currentParameter = parametersRemaining.head
-        params.get(currentParameter) match {
-          case Some(value) =>
-            currentParameter match {
-              case F_Picture.`nameString` => updateCurrentUserInstance(album.copy(name = value), params, parametersRemaining.tail)
-              case F_Picture.`descriptionString` => updateCurrentUserInstance(album.copy(description = value), params, parametersRemaining.tail)
-              case _ => throw new IllegalArgumentException("there is no case to handle such parameter in the list (system issue)")
-            }
-          case None =>
-            updateCurrentUserInstance(album, params, parametersRemaining.tail)
+  def updateAlbum(id: BigInt, request: HttpRequest) = { //TODO continue from here
+    def updateCurrentAlbum(album: F_AlbumE, fields: Map[String, JsValue]): F_AlbumE = {
+      if(fields.isEmpty) album
+      else {
+        val currentField = fields.head
+        currentField._1 match {
+          case F_Album.`nameField` => updateCurrentAlbum(album.copy(name = currentField._2.convertTo[Array[Byte]]),fields.tail)
+          case F_Picture.`descriptionField` => updateCurrentAlbum(album.copy(description = currentField._2.convertTo[Array[Byte]]), fields.tail)
+          case _ => updateCurrentAlbum(album, fields.tail)
         }
       }
     }
 
     try{
-      val user = albums.getOrElse(id, throw noSuchAlbumException(List(id)))
+      val album = albums.getOrElse(id, throw noSuchAlbumException(List(id)))
 
-      val params = request.uri.query
+      val fields = request.entity.asString.parseJson.asJsObject.fields
 
-      val updatedAlbum = updateCurrentUserInstance(user, params, F_Picture.changableParameters)
+      val updatedAlbum = updateCurrentAlbum(album, fields)
 
       albums.put(id, updatedAlbum)
 
-      val replyTo = sender
+      val replyTo = sender()
 
-      Future(updatedAlbum.toJson.compactPrint) pipeTo replyTo
+      Future(updatedAlbum.toJson.compactPrint).mapTo[String] pipeTo replyTo
     } catch {
       case ex: Exception =>
         sender ! actor.Status.Failure(ex)
     }
   }
 
-  def createImage(request: HttpRequest) = {
+  def createImage(request: HttpRequest) {
     val pictureID = getUniqueRandomBigInt(pictures)
     val imageID = placeImage(request)
-    val params = request.uri.query
-
-    def getAllComponents = {
-      def extractComponent(key: String) = {
-        params.find(_._1 == key).map(_._2) match {
-          case Some(x) => x
-          case None => throw new MissingFormatArgumentException("there is no entry for " + key)
-        }
-      }
-
-      val ownerID = BigInt(extractComponent(F_Picture.ownerString), 16)
-
-      val albumID = params.find(_._1 == F_Picture.albumString) match {
-        case Some(x) =>
-          val tempAlbumID = BigInt(x._2, 16)
-          if(albums.contains(tempAlbumID)) tempAlbumID else throw noSuchAlbumException(List(tempAlbumID))
-        case None =>
-          Await.result((backbone ? GetUserInfo(ownerID)).mapTo[F_User].map(x => backbone ? GetProfileInfo(x.profileID)).mapTo[F_UserProfile].map(_.albumIDs.last), 5 seconds)
-      }
-
-      (extractComponent(F_Picture.nameString), extractComponent(F_Picture.descriptionString), albumID,  new Date, imageID, pictureID, ownerID)
-    }
 
     try {
-      val newPicture = (F_Picture.apply _).tupled(getAllComponents)
+      val newPicture = request.entity.asString.parseJson.convertTo[F_PictureE].copy(fileID = imageID, pictureID = pictureID, dateOfCreation = new Date)
+      val albumID = newPicture.containingAlbum
+      albums.get(albumID) match {
+        case Some(album) =>
+          albums.put(albumID, album.copy(images = newPicture.pictureID :: album.images))
+        case None =>
+          throw noSuchAlbumException(List(albumID))
+      }
+
       pictures.put(pictureID, newPicture)
-      val replyTo = sender
-      Future(newPicture.toJson.compactPrint) pipeTo replyTo
+
+      val replyTo = sender()
+
+      Future(newPicture.toJson.compactPrint).mapTo[String] pipeTo replyTo
     } catch {
       case ex: Exception =>
-        sender ! actor.Status.Failure(ex)
+        sender() ! actor.Status.Failure(ex)
     }
   }
 
-  def createAlbum(request: HttpRequest) = {
-    val albumID = getUniqueRandomBigInt(pictures)
-    val params = request.uri.query
-
-    def getAllComponents = {
-      def extractComponent(key: String) = {
-        params.find(_._1 == key).map(_._2) match {
-          case Some(x) => x
-          case None => throw new MissingFormatArgumentException("there is no entry for " + key)
-        }
-      }
-
-      (extractComponent(F_Album.nameString), extractComponent(F_Album.descriptionString), new Date, false, BigInt(extractComponent(F_Album.ownerString), 16), albumID, List[BigInt]())
-    }
+  def createAlbum(request: HttpRequest) {
+    val albumID = getUniqueRandomBigInt(albums)
 
     try {
-      val newAlbum = (F_Album.apply _).tupled(getAllComponents)
-      albums.put(albumID, newAlbum)
-      val replyTo = sender
-      Future(newAlbum.toJson.compactPrint) pipeTo replyTo
+      val newAlbum = request.entity.asString.parseJson.convertTo[F_AlbumE].copy(id = albumID, dateOfCreation = new Date, images = List[BigInt]())
+      albums.put(newAlbum.id, newAlbum)
+      val replyTo = sender()
+      Future(newAlbum.toJson.compactPrint).mapTo[String] pipeTo replyTo
     } catch {
       case ex: Exception =>
-        sender ! actor.Status.Failure(ex)
+        sender() ! actor.Status.Failure(ex)
     }
   }
 
@@ -247,9 +221,9 @@ class F_PictureHandler(backbone: ActorRef) extends Actor with ActorLogging {
     }
   }
 
-  def deleteAlbum(id: BigInt) = {
+  def deleteAlbum(id: BigInt, defaultOverride: Boolean = false) = {
     val album = albums.getOrElse(id, throw noSuchAlbumException(List(id)))
-    if(album.isDefault) sender ! "Cannot delete default albums"
+    if(album.isDefault && !defaultOverride) sender ! "Cannot delete default albums"
     else {
       albums.remove(id) match {
         case Some(albumx) =>

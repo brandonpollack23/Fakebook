@@ -1,9 +1,12 @@
 package system.workers
 
+import java.security.MessageDigest
 import java.util.{Date, MissingFormatArgumentException}
 import javax.crypto.KeyGenerator
+import javax.crypto.spec.SecretKeySpec
 
 import akka.actor
+import akka.actor.FSM.Failure
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
@@ -29,6 +32,8 @@ class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
   implicit val timeout = Timeout(5 seconds)
 
   val users: collection.mutable.Map[BigInt, F_UserES] = collection.mutable.Map()
+
+  val md = MessageDigest.getInstance("SHA-256")
 
   def receive: Receive = {
     case CreateUser(request) =>
@@ -71,11 +76,11 @@ class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
     case RemoveFriend(removerID, request) =>
       removeFriend(removerID, request)
 
-    case AuthenticateUser(id, request) =>
-      authenticateUser(id)
+    case SetUpAuthenticateUser(id, request) =>
+      setUpAuthenticateUser(id)
 
-    case VerifyAuthentication(id, request) =>
-      verifyAuthentication(id, request)
+    case VerifyAuthenticationCookie(id, cookie) =>
+      verifyAuthenticationCookie(id, cookie)
   }
 
   /**
@@ -254,41 +259,38 @@ class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
    * and storing that in the user's F_UserES object for later reference
    * @param id user id
    */
-  def authenticateUser(id: BigInt) {
+  def setUpAuthenticateUser(id: BigInt) {
     val solutionNumber = BigInt(256, randomIDGenerator) // generate a number
     users.get(id) match {
       case Some(us) =>
-        users.put(id, us.copy(authenticationAnswer = solutionNumber))
-        val kgen = KeyGenerator.getInstance("AES")
-        kgen.init(128)
-        val aesKey = kgen.generateKey()
-        val encryptedNumber = solutionNumber.toByteArray.encryptAES(aesKey)
-        sender ! new String(encryptedNumber)
+        val solutionHash = BigInt(md.digest(solutionNumber.toByteArray))
+        users.put(id, us.copy(authenticationAnswerHash = solutionHash))
+        val problemNumber = BigInt(solutionNumber.toByteArray.encryptRSA(us.userE.identityKey))
+        val cookie = Cookie(HttpCookie(authenticationCookieName, problemNumber.toString(16), secure = true))
+        sender ! HttpResponse(OK, headers = List(cookie)) //respond with cookie TODO on user side this cookie needs to be decrypted with private identity key and remade using decryption
       case None =>
         sender ! noSuchUserFailure(id)
     }
   }
 
-  def verifyAuthentication(id: BigInt, request: HttpRequest) {
-    (users.get(id), request.uri.query.get(authenticationSolutionString)) match {
-      case (Some(us), Some(responseNumber)) =>
-        val solutionNumber = us.authenticationAnswer
-        if(BigInt(responseNumber, 16) == solutionNumber) {
-          //user authenticated, give them a cookie
-          val kgen = KeyGenerator.getInstance("AES")
-          kgen.init(128)
-          val aesKey = kgen.generateKey()
-          users.put(id, us.copy(sessionAESCookieDecrypter = aesKey))
-          val cookie = HttpCookie("authentication", new String(aesKey.getEncoded), secure = true)
-          sender ! HttpResponse(OK, "authentication success, please take the cookie", List[HttpHeader](Cookie(cookie)))
-        }
-      case (None, _) =>
-        sender ! noSuchUserFailure(id)
-      case (_, None) =>
-        sender ! actor.Status.Failure(new IllegalArgumentException("Missing authenticationsolution query"))
+  def verifyAuthenticationCookie(id: BigInt, cookie: HttpCookie) {
+    try {
+      (users.get(id), BigInt(cookie.content, 16).toByteArray) match {
+        case (Some(user), aesKeyBytes) =>
+          val solutionHash = md.digest(BigInt(cookie.content, 16).toByteArray)
+          if (user.sessionExpiration after new Date) {
+            if (solutionHash == user.authenticationAnswerHash) sender ! actor.Status.Success else sender ! actor.Status.Failure(new Exception("cookie key does not match with session"))
+          } else {
+            sender ! actor.Status.Failure(new Exception("your session has expired, please reverify"))
+          }
+        case (None, _) =>
+          sender ! noSuchUserFailure(id)
+      }
+    } catch {
+      case ex: NumberFormatException =>
+        sender ! actor.Status.Failure(ex)
     }
   }
-
 }
 
 object F_UserHandler {

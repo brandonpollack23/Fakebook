@@ -1,6 +1,10 @@
 package util
 
+import java.security.{KeyFactory, PublicKey}
+import java.security.spec.{X509EncodedKeySpec, RSAPublicKeySpec}
 import java.util.Date
+import javax.crypto.SecretKey
+import javax.crypto.spec.SecretKeySpec
 
 import graphnodes._
 import spray.json._
@@ -27,17 +31,33 @@ object MyJsonProtocol extends DefaultJsonProtocol {
     }
   }
 
-  implicit val userFormat = jsonFormat10(F_User.apply)
-  implicit val userEFormat = jsonFormat10(F_UserE.apply)
-  implicit val profileFormat = jsonFormat7(F_UserProfile.apply)
-  implicit val profileEFormat = jsonFormat7(F_UserProfileE.apply)
+  implicit object PublicKeyJsonFormat extends RootJsonFormat[PublicKey] {
+    def write(k: PublicKey) = JsString(BigInt(k.getEncoded).toString(16))
+
+    def read(t: JsValue) = t match {
+      case JsString(key) => KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(BigInt(key, 16).toByteArray))
+      case _ => deserializationError("bigint string to change to RSA public key expected")
+    }
+  }
+
+  implicit object MyBigIntJsonFormat extends RootJsonFormat[BigInt] {
+    def write(i: BigInt) = JsString(i.toString(16))
+
+    def read(i: JsValue) = i match {
+      case JsString(num) => BigInt(num, 16)
+      case _ => deserializationError("bigint string expected")
+    }
+  }
+
+  implicit val userFormat = jsonFormat11(F_User.apply)
+  implicit val userEFormat = jsonFormat11(F_UserE.apply)
+  implicit val profileFormat = jsonFormat8(F_UserProfile.apply)
+  implicit val profileEFormat = jsonFormat8(F_UserProfileE.apply)
   implicit val postFormat = jsonFormat6(F_Post.apply)
   implicit val postEFormat = jsonFormat6(F_PostE.apply)
   implicit val pictureFormat = jsonFormat7(F_Picture.apply)
   implicit val pictureEFormat = jsonFormat7(F_PictureE.apply)
-  implicit val albumFormat = jsonFormat7(F_Album.apply)
-  implicit val albumEFormat = jsonFormat7(F_AlbumE.apply)
-  implicit val pageFormat = jsonFormat9(F_Page.apply)
-
-  private def jsByteVector(ba: Array[Byte]) = JsArray(ba.map(JsNumber(_)).toVector)
+  implicit val albumFormat = jsonFormat6(F_Album.apply)
+  implicit val albumEFormat = jsonFormat6(F_AlbumE.apply)
+  implicit val pageFormat = jsonFormat10(F_Page.apply)
 }

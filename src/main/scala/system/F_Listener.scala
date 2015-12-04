@@ -10,6 +10,7 @@ import spray.http.StatusCodes._
 import spray.http.{HttpRequest, HttpResponse}
 import spray.routing._
 import system.F_BackBone._
+import graphnodes.F_User._
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -56,13 +57,8 @@ trait F_ListenerService extends HttpService {
       } ~
         pathPrefix("users") {
             pathPrefix("auth") {
-              pathPrefix("verify") {
-                detach() {
-                  extractRequestContext { request => complete(genericPost(request, VerifyAuthentication)) }
-                }
-              } ~
               detach() {
-                extractRequestContext { request => complete(authenticateUser(request))}
+                extractRequestContext { request => complete(setUpAuthenticateUser(request))}
               }
             } ~
             path("newuser") {
@@ -222,7 +218,7 @@ trait F_ListenerService extends HttpService {
    * @return returns a route for thed spray routing to go through and side effects the complete needed
    */
   def genericGet(req: RequestContext, messageConstructor: (BigInt) => GetInfo) = {
-    val id = req.unmatchedPath.dropChars(1).toString
+    val id = req.unmatchedPath.dropChars(1).toString()
 
     if (!id.contains("/")) { //if this is the last element only
       try {
@@ -256,31 +252,35 @@ trait F_ListenerService extends HttpService {
    * @return
    */
   def genericPost(req: RequestContext, messageConstructor: (BigInt, HttpRequest) => PostInfo) = {
-    val id = req.unmatchedPath.dropChars(1).toString
+    def post = () => {
+      val id = req.unmatchedPath.dropChars(1).toString()
 
-    if (!id.contains("/")) {
-      try {
-        val idBig = BigInt(id, 16)
-        Await.ready((backbone ? messageConstructor.apply(idBig, req.request)).mapTo[String], timeout).value.get match {
-          case Success(newEntityJson) =>
-            log.info("post completed successfully: " + messageConstructor + " for " + idBig)
-            HttpResponse(OK, newEntityJson)
-          case Failure(ex) =>
-            log.error(ex, "get failed: " + messageConstructor + " for " + idBig)
-            HttpResponse(InternalServerError, "Request could not be completed: \n" + ex.getMessage)
+      if (!id.contains("/")) {
+        try {
+          val idBig = BigInt(id, 16)
+          Await.ready((backbone ? messageConstructor.apply(idBig, req.request)).mapTo[String], timeout).value.get match {
+            case Success(newEntityJson) =>
+              log.info("post completed successfully: " + messageConstructor + " for " + idBig)
+              HttpResponse(OK, newEntityJson)
+            case Failure(ex) =>
+              log.error(ex, "get failed: " + messageConstructor + " for " + idBig)
+              HttpResponse(InternalServerError, "Request could not be completed: \n" + ex.getMessage)
+          }
+        } catch {
+          case ex: NumberFormatException =>
+            log.info("illegally formatted id requested: " + id)
+            HttpResponse(BadRequest, "Numbers are formatted incorrectly")
+          case ex: TimeoutException =>
+            HttpResponse(ServiceUnavailable, "The server is under heavy load and cannot currently process your request")
         }
-      } catch {
-        case ex: NumberFormatException =>
-          log.info("illegally formatted id requested: " + id)
-          HttpResponse(BadRequest, "Numbers are formatted incorrectly")
-        case ex: TimeoutException =>
-          HttpResponse(ServiceUnavailable, "The server is under heavy load and cannot currently process your request")
+      }
+      else {
+        log.debug("uri not formatted correctly for a post")
+        HttpResponse(NotFound, "The requested URI cannot be serviced")
       }
     }
-    else {
-      log.debug("uri not formatted correctly for a post")
-      HttpResponse(NotFound, "The requested URI cannot be serviced")
-    }
+
+    verifyCookie(req.request, post)
   }
 
   /**
@@ -288,21 +288,28 @@ trait F_ListenerService extends HttpService {
    * @param message constructed message to send to the backbone for handling
    * @return
    */
-  def genericPut(message: PutInfo) = {
-    try {
-      Await.ready((backbone ? message).mapTo[String], timeout).value.get match {
-        case Success(newEntityJson) =>
-          log.info("put completed successfully: " + message)
-          HttpResponse(OK, newEntityJson)
-        case Failure(ex) =>
-          log.error(ex, "put failed: " + ex.getMessage)
-          HttpResponse(InternalServerError, "Error putting entity: " + ex.getMessage)
+  def genericPut(message: PutInfo): HttpResponse = {
+    def put = () => {
+      try {
+        Await.ready((backbone ? message).mapTo[String], timeout).value.get match {
+          case Success(newEntityJson) =>
+            log.info("put completed successfully: " + message)
+            HttpResponse(OK, newEntityJson)
+          case Failure(ex) =>
+            log.error(ex, "put failed: " + ex.getMessage)
+            HttpResponse(InternalServerError, "Error putting entity: " + ex.getMessage)
+        }
+      } catch {
+        case ex: TimeoutException =>
+          log.debug("uri not formatted correctly for PUT")
+          HttpResponse(ServiceUnavailable, "The server is under heavy load and cannot currently process your request")
       }
-    } catch {
-      case ex: TimeoutException =>
-        log.debug("uri not formatted correctly for PUT")
-        HttpResponse(ServiceUnavailable, "The server is under heavy load and cannot currently process your request")
     }
+
+    if(message.getClass != classOf[CreateUser]) { //unless creating a use for the first time we need to authenticate
+      verifyCookie(message.httpRequest, put)
+    }
+    else put.apply()
   }
 
   /**
@@ -312,31 +319,35 @@ trait F_ListenerService extends HttpService {
    * @return route
    */
   def genericDelete(req: RequestContext, messageConstructor: (BigInt) => DeleteInfo) = {
-    val id = req.unmatchedPath.dropChars(1).toString
+    def delete = () => {
+      val id = req.unmatchedPath.dropChars(1).toString()
 
-    if (!id.contains("/")) {
-      try {
-        val idBig = BigInt(id, 16)
-        Await.ready((backbone ? messageConstructor.apply(idBig)).mapTo[String], timeout).value.get match {
-          case Success(newEntityJson) =>
-            log.info("delete completed successfully: " + messageConstructor + " for " + idBig)
-            HttpResponse(OK, newEntityJson)
-          case Failure(ex) =>
-            log.error(ex, "get failed: " + messageConstructor + " for " + idBig)
-            HttpResponse(InternalServerError, "Request could not be completed: \n" + ex.getMessage)
+      if (!id.contains("/")) {
+        try {
+          val idBig = BigInt(id, 16)
+          Await.ready((backbone ? messageConstructor.apply(idBig)).mapTo[String], timeout).value.get match {
+            case Success(newEntityJson) =>
+              log.info("delete completed successfully: " + messageConstructor + " for " + idBig)
+              HttpResponse(OK, newEntityJson)
+            case Failure(ex) =>
+              log.error(ex, "get failed: " + messageConstructor + " for " + idBig)
+              HttpResponse(InternalServerError, "Request could not be completed: \n" + ex.getMessage)
+          }
+        } catch {
+          case e: NumberFormatException =>
+            log.info("illegally formatted id requested: " + id)
+            HttpResponse(BadRequest, "Numbers are formatted incorrectly")
+          case ex: TimeoutException =>
+            HttpResponse(ServiceUnavailable, "The server is under heavy load and cannot currently process your request")
         }
-      } catch {
-        case e: NumberFormatException =>
-          log.info("illegally formatted id requested: " + id)
-          HttpResponse(BadRequest, "Numbers are formatted incorrectly")
-        case ex: TimeoutException =>
-          HttpResponse(ServiceUnavailable, "The server is under heavy load and cannot currently process your request")
+      }
+      else {
+        log.debug("uri not formatted correctly for delete")
+        HttpResponse(NotFound, "The requested URI cannot be serviced")
       }
     }
-    else {
-      log.debug("uri not formatted correctly for delete")
-      HttpResponse(NotFound, "The requested URI cannot be serviced")
-    }
+
+    verifyCookie(req.request, delete)
   }
 
   /**
@@ -345,7 +356,7 @@ trait F_ListenerService extends HttpService {
    * @return something?
    */
   def getImage(req: RequestContext) = {
-    val id = req.unmatchedPath.dropChars(1).toString
+    val id = req.unmatchedPath.dropChars(1).toString()
 
     if (!id.contains("/")) { //if this is the last element only
       try {
@@ -372,19 +383,17 @@ trait F_ListenerService extends HttpService {
     }
   }
 
-  def authenticateUser(req: RequestContext) = {
-    val id = req.unmatchedPath.dropChars(1).toString
+  def setUpAuthenticateUser(req: RequestContext) = {
+    val id = req.unmatchedPath.dropChars(1).toString()
 
     if(!id.contains("/")) {
       try{
         val idBig = BigInt(id, 16)
-        Await.ready((backbone ? VerifyAuthentication(idBig, req.request)).mapTo[String], timeout).value.get match {
+        Await.ready((backbone ? SetUpAuthenticateUser(idBig, req.request)).mapTo[HttpResponse], timeout).value.get match {
           case Success(httpresponse) =>
-            log.info("succefully authenticated " + idBig)
-            httpresponse
+
           case Failure(ex) =>
-            log.error(ex, "get failed: " + GetImage + " for " + idBig)
-            HttpResponse(Forbidden, "You failed the authentication test")
+
         }
       } catch {
         case e: NumberFormatException =>
@@ -395,6 +404,22 @@ trait F_ListenerService extends HttpService {
     else {
       log.debug("uri not formatted correctly for verify auth")
       HttpResponse(NotFound, "The requested URI cannot be serviced")
+    }
+  }
+
+  def verifyCookie(httpRequest: HttpRequest, callback: () => HttpResponse): HttpResponse = {
+    (httpRequest.cookies.find(header => header.name == authenticationCookieName), httpRequest.uri.query.get("owner"))  match {
+      case (Some(cookie), Some(owner)) =>
+        Await.result(backbone ? VerifyAuthenticationCookie(BigInt(owner, 16), cookie), timeout) match {
+          case Success(_) =>
+            callback.apply()
+          case Failure(ex) =>
+            HttpResponse(Unauthorized, "you do not have access because " + ex.getMessage)
+        }
+      case (None, _) =>
+        HttpResponse(Forbidden, "you must have an authentication cookie to continue")
+      case _ =>
+        HttpResponse(NotAcceptable, "you are missing the owner query for this put")
     }
   }
 }

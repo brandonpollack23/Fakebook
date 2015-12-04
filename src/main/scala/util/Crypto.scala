@@ -12,6 +12,10 @@ object Crypto {
     def toByteArray: Array[Byte] = ByteBuffer.allocate(4).putInt(x).array()
   }
 
+  implicit class ByteArrayBoolConverter(x: Boolean) {
+    def toByteArray: Array[Byte] = if(x) new Array(1) else new Array(0)
+  }
+
   implicit class ByteArrayAnyConverter(x: java.io.Serializable) {
     def toByteArray: Array[Byte] = {
       val b = new ByteArrayOutputStream()
@@ -30,6 +34,7 @@ object Crypto {
 
     def byteArray2Int: Int = ByteBuffer.wrap(x).getInt
     def byteArray2String: String = new String(x)
+    def byteArray2Bool: Boolean = x(0) == 1
   }
 
   implicit class Encrypter(value: Array[Byte]) {

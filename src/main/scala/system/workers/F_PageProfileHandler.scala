@@ -1,25 +1,23 @@
 package system.workers
 
-import java.util.{MissingFormatArgumentException, Date}
+import java.util.Date
 
 import akka.actor
-import akka.actor.{Props, ActorRef, ActorLogging, Actor}
-import akka.pattern.{pipe, ask}
+import akka.actor.{Actor, ActorLogging, ActorRef, Props}
+import akka.pattern.{ask, pipe}
 import akka.util.Timeout
 import graphnodes._
-import spray.http.{Uri, HttpRequest}
-import system.F_BackBone._
-import util.MyJsonProtocol
-
-import scala.concurrent.{Await, Future}
-import scala.concurrent.duration._
-
+import spray.http.HttpRequest
 import spray.json._
-import MyJsonProtocol._
+import system.F_BackBone._
+import util.MyJsonProtocol._
 
-import language.postfixOps
+import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
+import scala.language.postfixOps
 
 //posts can be encrypted or unencrypted (ones on pages are public so unencrypted)
+//TODO consider going back to polymorphism for posts
 class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
   import F_PageProfileHandler._
   import context.dispatcher
@@ -27,36 +25,36 @@ class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
   implicit val timeout = Timeout(5 seconds)
 
   val pages = collection.mutable.Map[BigInt, F_Page]()
-  val profiles = collection.mutable.Map[BigInt, F_UserProfile]()
-  val posts = collection.mutable.Map[BigInt, F_PostEOrPost]()
+  val profiles = collection.mutable.Map[BigInt, F_UserProfileE]()
+  val posts = collection.mutable.Map[BigInt, Either[F_Post, F_PostE]]()
 
   def receive = {
-    case GetProfileInfo(id) =>
+    case GetProfileInfo(id) => //get will just send the encrypted data no problem, if they can decrypt it they can have it, but only friends will have the key
       val replyTo = sender()
 
       profiles.get(id) match {
-        case Some(prof) => Future(prof.toJson.compactPrint) pipeTo replyTo
+        case Some(prof) => Future(prof.toJson.compactPrint).mapTo[String] pipeTo replyTo
         case None => replyTo ! noSuchProfileFailure(id)
       }
 
-    case GetPageInfo(id) =>
+    case GetPageInfo(id) => //pages aren't encrypted due to their public nature, so just give it to whoever wants it
       val replyTo = sender()
 
       pages.get(id) match {
-        case Some(page) => Future(page.toJson.compactPrint) pipeTo replyTo
+        case Some(page) => Future(page.toJson.compactPrint).mapTo[String] pipeTo replyTo
         case None => replyTo ! noSuchPageFailure(id)
       }
 
-    case GetPostInfo(id) =>
+    case GetPostInfo(id) => //posts may or may not be encrypted, if they ARE encrypted it's because they are on a profile, either way the client will know what to do with it, so just send it
       val replyTo = sender()
 
       posts.get(id) match {
-        case Some(post: F_Post) => Future(post.toJson.compactPrint) pipeTo replyTo
-        case Some(post: F_PostE) => Future(post.toJson.compactPrint) pipeTo replyTo
+        case Some(post: Left) => Future(post.toJson.compactPrint).mapTo[String] pipeTo replyTo
+        case Some(post: Right) => Future(post.toJson.compactPrint).mapTo[String] pipeTo replyTo
         case None => replyTo ! noSuchPostFailure(id)
       }
 
-    case CreateUserProfile(userID) =>
+    case CreateUserProfile(userID) => //creates an empty user profile for the user
       sender ! createUserProfile(userID) //returns profileID, this is an intersystem message so it is handled different
 
     case CreatePage(request) =>
@@ -85,104 +83,101 @@ class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
   }
 
   def createUserProfile(userID: BigInt) = {
-    val profileID = getUniqueRandomBigInt(profiles)
-    val defaultAlbumID = (backbone ? CreateDefaultAlbum(userID)).mapTo[BigInt]
-    val defaultProfile = F_UserProfile(List[BigInt](), new Date, List[BigInt](Await.result(defaultAlbumID, 5 seconds)), defaultPictureID, "insert bio here", userID, profileID)
-    profiles.put(profileID, defaultProfile)
-    profileID
+    try {
+      val profileID = getUniqueRandomBigInt(profiles)
+      val defaultAlbumID = Await.result((backbone ? CreateDefaultAlbum(userID)).mapTo[BigInt], 5 seconds)
+      val defaultProfile = F_UserProfileE(List[BigInt](), new Date, defaultAlbumID, List[BigInt](), defaultPictureID, Array[Byte](), userID, profileID)
+      profiles.put(profileID, defaultProfile)
+      profileID
+    } catch {
+      case ex: Exception =>
+        actor.Status.Failure(ex)
+    }
   }
 
   def createPage(request: HttpRequest) = {
     val pageID = getUniqueRandomBigInt(pages)
-    val params = request.uri.query
-    val defaultAlbumID = (backbone ? CreateDefaultAlbum(pageID)).mapTo[BigInt]
-
-    def getAllComponents = {
-      def extractComponent(key: String) = {
-        params.find(_._1 == key).map(_._2) match {
-          case Some(x) => x
-          case None => throw new MissingFormatArgumentException("there is no entry for " + key)
-        }
-      }
-
-      (extractComponent(F_Page.nameString), extractComponent(F_Page.descriptionString), new Date, List[BigInt](), List[BigInt](), List[BigInt](Await.result(defaultAlbumID, 5 seconds)), defaultPictureID, BigInt(extractComponent(F_Page.ownerString), 16), pageID)
-    }
+    val defaultAlbumID = Await.result((backbone ? CreateDefaultAlbum(pageID)).mapTo[BigInt], 5 seconds)
 
     try {
-      val newPage = (F_Page.apply _).tupled(getAllComponents)
+      val newPage = request.entity.asString.parseJson.convertTo[F_Page].copy(defaultAlbumID = defaultAlbumID, dateOfCreation = new Date)
       pages.put(pageID, newPage)
       val replyTo = sender()
-      Future(newPage.toJson.compactPrint) pipeTo replyTo
+      Future(newPage.toJson.compactPrint).mapTo[String] pipeTo replyTo
     } catch {
       case ex: Exception =>
         sender ! actor.Status.Failure(ex)
     }
   }
 
-  def createPost(request: HttpRequest) = {
+  def createPost(request: HttpRequest) = { //could be rewritten much better
     val postID = getUniqueRandomBigInt(posts)
-    val params = request.uri.query
 
-    def getAllComponents = {
-      def extractComponent(key: String) = {
-        params.find(_._1 == key).map(_._2) match {
-          case Some(x) => x
-          case None => throw new MissingFormatArgumentException("there is no entry for " + key)
-        }
+    try {
+      var location: BigInt = 0
+      val isProfile = request.uri.query.get(F_Post.locationTypeString).get == F_Post.locationProfile
+      val newPost = if(isProfile) {
+        val pst = request.entity.asString.parseJson.convertTo[F_PostE].copy(dateOfCreation = new Date, postID = postID)
+        location = pst.location
+        Right(pst)
+      } else {
+        val pst = request.entity.asString.parseJson.convertTo[F_Post].copy(dateOfCreation = new Date, postID = postID)
+        location = pst.location
+        Left(pst)
       }
 
-      (extractComponent(F_Post.contentsString), BigInt(extractComponent(F_Post.creatorString), 16), extractComponent(F_Post.locationTypeString), BigInt(extractComponent(F_Post.locationString), 16), new Date, postID)
+      val replyTo = sender()
+      posts.put(postID, newPost)
+
+      newPost match {
+        case Left(_) =>
+          pages.get(location) match {
+            case Some(page) =>
+              pages.put(location, page.copy(posts = postID :: page.posts))
+            case None =>
+              throw new IllegalArgumentException("That page does not exist to post on")
+          }
+        case Right(_) =>
+          profiles.get(location) match {
+            case Some(profile) =>
+              profiles.put(location, profile.copy(posts = postID :: profile.posts))
+            case None =>
+              throw new IllegalArgumentException("That profile does not exist to post on")
+          }
+      }
+
+      Future(newPost.toJson.compactPrint).mapTo[String] pipeTo replyTo
+    } catch {
+      case ex: Exception =>
+        sender ! actor.Status.Failure(ex)
+    }
+  }
+
+  def updatePageData(id: BigInt, request: HttpRequest) {
+    def updatePage(page: F_Page, fields: Map[String, JsValue]): F_Page = {
+      if(fields.isEmpty) page
+      else {
+        val currentField = fields.head
+        currentField._1 match {
+          case F_Page.`nameField` =>
+            updatePage(page.copy(name = currentField._2.toString()), fields.tail)
+          case F_Page.`descriptionField` =>
+            updatePage(page.copy(description = currentField._2.toString()), fields.tail)
+          case _ =>
+            updatePage(page, fields.tail)
+        }
+      }
     }
 
     try {
-      val newPost = (F_Post.apply _).tupled(getAllComponents)
-      val replyTo = sender()
-      posts.put(postID, newPost)
-      Future(newPost.toJson.compactPrint) pipeTo replyTo
-    } catch {
-      case ex: Exception =>
-        sender ! actor.Status.Failure(ex)
-    }
-  }
-
-  def updatePageData(id: BigInt, request: HttpRequest) = {
-    def updateCurrentPageInstance(page: F_Page, params: Uri.Query, parametersRemaining: List[String]): F_Page = {
-      if(parametersRemaining.isEmpty) {
-        page
-      } else {
-        val currentParameter = parametersRemaining.head
-        params.get(currentParameter) match {
-          case Some(value) =>
-            currentParameter match {
-              case F_Page.`joinPageString` if value == "true" =>
-                val newUser = BigInt(params.getOrElse(F_Page.newUserString, throw new MissingFormatArgumentException("missing user id to join page")), 16)
-                updateCurrentPageInstance(page.copy(userList = newUser :: page.userList), params, parametersRemaining.tail)
-              case F_Page.`leavePageString` if value == "true" =>
-                val removeUser = BigInt(params.getOrElse(F_Page.newUserString, throw new MissingFormatArgumentException("missing user id to leave page")), 16)
-                updateCurrentPageInstance(page.copy(userList = page.userList.filter(_ != removeUser)), params, parametersRemaining.tail)
-              case F_Page.`nameString` => updateCurrentPageInstance(page.copy(name = value), params, parametersRemaining.tail)
-              case F_Page.`descriptionString` => updateCurrentPageInstance(page.copy(description = value), params, parametersRemaining.tail)
-              case F_Page.`ownerString` => updateCurrentPageInstance(page.copy(ownerID = BigInt(value,16)), params, parametersRemaining.tail)
-              case _ => throw new IllegalArgumentException("there is no case to handle such parameter in the list (system issue)")
-            }
-          case None =>
-            updateCurrentPageInstance(page, params, parametersRemaining.tail)
-        }
-      }
-    }
-
-    try{
-      val page = pages.getOrElse(id, throw noSuchPageException(List(id)))
-
-      val params = request.uri.query
-
-      val updatedPage = updateCurrentPageInstance(page, params, F_Page.changableParameters)
+      val page = pages.getOrElse(id, throw new NoSuchElementException("That page does not exist"))
+      val updatedPage = updatePage(page, request.entity.asString.parseJson.asJsObject.fields)
 
       pages.put(id, updatedPage)
 
       val replyTo = sender()
 
-      Future(updatedPage.toJson.compactPrint) pipeTo replyTo
+      Future(updatedPage.toJson.compactPrint).mapTo[String] pipeTo replyTo
     } catch {
       case ex: Exception =>
         sender ! actor.Status.Failure(ex)
@@ -190,72 +185,56 @@ class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
   }
 
   def updateProfileData(id: BigInt, request: HttpRequest) = {
-    def updateCurrentProfileInstance(profile: F_UserProfile, params: Uri.Query, parametersRemaining: List[String]): F_UserProfile = {
-      if(parametersRemaining.isEmpty) {
-        profile
-      } else {
-        val currentParameter = parametersRemaining.head
-        params.get(currentParameter) match {
-          case Some(value) =>
-            currentParameter match {
-              case F_UserProfile.`profilePictureString` => updateCurrentProfileInstance(profile.copy(profilePictureID = BigInt(value,16)), params, parametersRemaining.tail)
-              case F_UserProfile.`descriptionString` => updateCurrentProfileInstance(profile.copy(description = value), params, parametersRemaining.tail)
-              case _ => throw new IllegalArgumentException("there is no case to handle such parameter in the list (system issue)")
-            }
-          case None =>
-            updateCurrentProfileInstance(profile, params, parametersRemaining.tail)
+    def updateProfile(profile: F_UserProfileE, fields: Map[String, JsValue]): F_UserProfileE = {
+      if(fields.isEmpty) profile
+      else {
+        val currentParameter = fields.head
+        currentParameter._1 match {
+          case F_UserProfile.`profilePictureIDField` =>
+            //TODO check if the album ID exists
+            updateProfile(profile.copy(profilePictureID = BigInt(currentParameter._2.toString(), 16)), fields.tail)
+          case F_UserProfile.`descriptionField` => updateProfile(profile.copy(description = currentParameter._2.toString().getBytes), fields.tail)
+          case _ =>
+            updateProfile(profile, fields.tail)
         }
       }
     }
 
     try{
       val profile = profiles.getOrElse(id, throw noSuchProfileException(List(id)))
+      val updateFields = request.entity.asString.parseJson.asJsObject.fields
 
-      val params = request.uri.query
-
-      val updatedProfile = updateCurrentProfileInstance(profile, params, F_Page.changableParameters)
+      val updatedProfile = updateProfile(profile, updateFields)
 
       profiles.put(id, updatedProfile)
 
       val replyTo = sender()
 
-      Future(updatedProfile.toJson.compactPrint) pipeTo replyTo
+      Future(updatedProfile.toJson.compactPrint).mapTo[String] pipeTo replyTo
     } catch {
       case ex: Exception =>
         sender ! actor.Status.Failure(ex)
     }
   }
 
-  def updatePostData(id: BigInt, request: HttpRequest) = {
-    def updateCurrentPostInstance(post: F_Post, params: Uri.Query, parametersRemaining: List[String]): F_Post = {
-      if(parametersRemaining.isEmpty) {
-        post
-      } else {
-        val currentParameter = parametersRemaining.head
-        params.get(currentParameter) match {
-          case Some(value) =>
-            currentParameter match {
-              case F_Post.`contentsString` => updateCurrentPostInstance(post.copy(contents = value), params, parametersRemaining.tail)
-              case _ => throw new IllegalArgumentException("there is no case to handle such parameter in the list (system issue)")
-            }
-          case None =>
-            updateCurrentPostInstance(post, params, parametersRemaining.tail)
+  def updatePostData(id: BigInt, request: HttpRequest) = { //TODO continue chagjign to entity mode from here
+    def updateCurrentPost(post: F_Post, fields: Map[String, JsValue]): F_Post = {
+      if(fields.isEmpty) post else {
+        val currentField = fields.head
+        currentField._1 match {
+          case F_Post.`contentsField` => updateCurrentPost(post.copy(contents = currentField._2.toString()), fields.tail)
+          case _ => updateCurrentPost(post, fields.tail)
         }
       }
     }
-    def updateCurrentPostInstanceE(post: F_PostE, params: Uri.Query, parametersRemaining: List[String]): F_PostE = {
-      if(parametersRemaining.isEmpty) {
+    def updateCurrentPostE(post: F_PostE, fields: Map[String, JsValue]): F_PostE = {
+      if(fields.isEmpty) {
         post
       } else {
-        val currentParameter = parametersRemaining.head
-        params.get(currentParameter) match {
-          case Some(value) =>
-            currentParameter match {
-              case F_Post.`contentsString` => updateCurrentPostInstanceE(post.copy(contents = value.getBytes), params, parametersRemaining.tail)
-              case _ => throw new IllegalArgumentException("there is no case to handle such parameter in the list (system issue)")
-            }
-          case None =>
-            updateCurrentPostInstanceE(post, params, parametersRemaining.tail)
+        val currentField = fields.head
+        currentField._1 match {
+          case F_Post.`contentsField` => updateCurrentPostE(post.copy(contents = currentField._2.convertTo[Array[Byte]]), fields.tail)
+          case _ => updateCurrentPostE(post, fields.tail)
         }
       }
     }
@@ -263,11 +242,11 @@ class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
     try{
       val post = posts.getOrElse(id, throw noSuchPostException(List(id)))
 
-      val params = request.uri.query
+      val updateFields = request.entity.asString.parseJson.asJsObject.fields
 
       val updatedPost = post match {
-        case post: F_Post => updateCurrentPostInstance(post, params, F_Page.changableParameters)
-        case post: F_PostE => updateCurrentPostInstanceE(post, params, F_Page.changableParameters)
+        case Left(p) => Left(updateCurrentPost(p, updateFields))
+        case Right(p) => Right(updateCurrentPostE(p, updateFields))
       }
 
       posts.put(id, updatedPost)
@@ -275,8 +254,8 @@ class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
       val replyTo = sender()
 
       updatedPost match {
-        case x: F_Post => Future(x.toJson.compactPrint) pipeTo replyTo
-        case x: F_PostE => Future(x.toJson.compactPrint) pipeTo replyTo
+        case x: F_Post => Future(x.toJson.compactPrint).mapTo[String] pipeTo replyTo
+        case x: F_PostE => Future(x.toJson.compactPrint).mapTo[String] pipeTo replyTo
       }
     } catch {
       case ex: Exception =>
@@ -287,7 +266,8 @@ class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
   def deletePage(id: BigInt) = {
     pages.remove(id) match {
       case Some(x) =>
-        x.albumIDs.foreach(backbone ! DeleteAlbum(_)) //TODO make it so default album is even deleted!!!  best way is probobly special delete default album message
+        x.albumIDs.foreach(backbone ! DeleteAlbum(_))
+        backbone ! DeleteAlbum(x.defaultAlbumID, defaultOverride = true)
         x.posts.foreach(backbone ! DeletePost(_))
         sender ! "Page Deleted!"
       case None => sender ! noSuchPageFailure(id)
@@ -297,17 +277,16 @@ class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
   def deletePost(id: BigInt) = {
     try {
       posts.remove(id) match {
-        case Some(x) =>
-          if (x.locationType == F_Post.locationPage) {
-            val containingPage = pages.getOrElse(x.location, throw noSuchPageException(List(x.location)))
-            pages.put(x.location, containingPage.copy(posts = containingPage.posts.filter(_ != x.postID)))
-          } else if (x.locationType == F_Post.locationProfile) {
-            val containingProfile = profiles.getOrElse(x.location, throw noSuchPageException(List(x.location)))
-            profiles.put(x.location, containingProfile.copy(posts = containingProfile.posts.filter(_ != x.postID)))
-          }
-          sender ! "Post Deleted!"
+        case Some(Left(x)) =>
+          val containingPage = pages.getOrElse(x.location, throw noSuchPageException(List(x.location)))
+          pages.put(x.location, containingPage.copy(posts = containingPage.posts.filter(_ != x.postID)))
+        case Some(Right(x)) =>
+          val containingProfile = profiles.getOrElse(x.location, throw noSuchPageException(List(x.location)))
+          profiles.put(x.location, containingProfile.copy(posts = containingProfile.posts.filter(_ != x.postID)))
         case None => sender ! noSuchPostFailure(id)
       }
+
+      sender ! "Post Deleted!"
     } catch {
       case ex: Exception =>
         sender ! actor.Status.Failure(ex)
@@ -318,6 +297,7 @@ class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
     profiles.remove(id) match {
       case Some(x) =>
         x.albumIDs.foreach(backbone ! DeleteAlbum(_))
+        backbone ! DeleteAlbum(x.defaultAlbum)
       case None =>
         log.error("No such profile with id " + id)
     }

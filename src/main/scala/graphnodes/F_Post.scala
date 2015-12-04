@@ -1,40 +1,41 @@
 package graphnodes
 
+import java.security.Key
 import java.util.Date
-
-sealed trait F_PostEOrPost {
-  val contents: Any
-  val creator: Any
-  val locationType: String
-  val location: BigInt
-  val dateOfCreation: Any
-  val postID: BigInt
-}
+import util.Crypto._
 
 case class F_Post(contents: String,
                    creator: BigInt,
                    locationType: String, //either profile or page
                    location: BigInt,
                    dateOfCreation: Date,
-                   postID: BigInt) extends F_PostEOrPost
+                   postID: BigInt) {
+  def encryptPost(key: Key) = {
+    F_PostE(contents.getBytes.encryptAES(key), creator, locationType, location, dateOfCreation,
+      postID)
+  }
+}
 
 case class F_PostE(contents: Array[Byte],
                   creator: BigInt,
                   locationType: String, //either profile or page
-                  location: Array[Byte],
-                  dateOfCreation: Array[Byte],
-                  postID: BigInt) extends F_PostEOrPost
+                  location: BigInt,
+                  dateOfCreation: Date,
+                  postID: BigInt) {
+  def decryptPost(key: Key) = {
+    F_Post(contents.decryptAES(key).byteArray2String, creator, locationType, location,
+      dateOfCreation, postID)
+  }
+}
 
 object F_Post {
-  //these are the queries needed for creation
-  val contentsString = "contents"
-  val creatorString = "creator"
+  //this is the one query
   val locationTypeString = "locationType" //string to show where this is, either in profiles or pages object
-  val locationString = "location"
 
-  //these are the two options for value to locationTypeString in the Json Doc
+  //these are the two options for value to locationTypeString in the Json Doc and query
   val locationPage = "page"
   val locationProfile = "profile"
 
-  val changableParamaters = List(contentsString) //this one doesnt need locationTypeString or locationString because the URI determines those
+  //changable parameter for use on server
+  val contentsField = "contents"
 }

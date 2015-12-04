@@ -3,10 +3,9 @@ package system
 import java.security.SecureRandom
 import java.text.SimpleDateFormat
 
-import akka.actor.{ActorRef, Props, Actor, ActorLogging}
-import graphnodes.F_Picture
-import spray.http.{Uri, HttpRequest}
-import system.workers.{F_PageProfileHandler, F_UserHandler, F_PictureHandler}
+import akka.actor.{Actor, ActorLogging, Props}
+import spray.http.{HttpCookie, HttpRequest}
+import system.workers.{F_PageProfileHandler, F_PictureHandler, F_UserHandler}
 
 import scala.collection.mutable.Map
 
@@ -77,8 +76,8 @@ class F_BackBone extends Actor with ActorLogging {
     case RemoveFriend(id, req) =>
       f_userHandler forward RemoveFriend(id, req)
 
-    case AuthenticateUser(id, req) =>
-      f_userHandler forward AuthenticateUser(id, req)
+    case SetUpAuthenticateUser(id, req) =>
+      f_userHandler forward SetUpAuthenticateUser(id, req)
 
     //PUT functions
     case PutImage(image) =>
@@ -106,13 +105,16 @@ class F_BackBone extends Actor with ActorLogging {
     case DeletePicture(id) =>
       f_pictureHandler forward DeletePicture(id)
 
-    case DeleteAlbum(id) =>
-      f_pictureHandler forward DeleteAlbum(id)
+    case DeleteAlbum(id, over) =>
+      f_pictureHandler forward DeleteAlbum(id, over)
 
     case DeletePost(id) =>
       f_pageProfileHandler forward DeletePost(id)
 
     //InterSystem messages
+    case VerifyAuthenticationCookie(id, request) =>
+      f_userHandler forward VerifyAuthenticationCookie(id, request)
+
     case CreateUserProfile(userID) =>
       f_pageProfileHandler forward CreateUserProfile(userID)
 
@@ -148,10 +150,9 @@ object F_BackBone {
   case class HandleFriendRequest(acceptorID: BigInt, httpRequest: HttpRequest) extends PostInfo //id acceptor, query requester
   case class RemoveFriend(userID: BigInt, httpRequest: HttpRequest) extends PostInfo //restful id is remover, request is removed
   //special authentication stuff
-  case class AuthenticateUser(userID: BigInt, httpRequest: HttpRequest) extends PostInfo
-  case class VerifyAuthentication(userID: BigInt, httpRequest: HttpRequest) extends PostInfo
+  case class SetUpAuthenticateUser(userID: BigInt, httpRequest: HttpRequest) extends PostInfo
 
-  sealed trait PutInfo //note: you can use the routing DSL parameter seq to extract parameters!
+  sealed trait PutInfo { val httpRequest: HttpRequest } //note: you can use the routing DSL parameter seq to extract parameters!
   case class PutImage(httpRequest: HttpRequest) extends PutInfo//must send the original sender back the JSON object of the created image
   case class CreateUser(httpRequest: HttpRequest) extends PutInfo //create user user arguments stored in httprequest and return new user JSON, they need a default profile, album, and unfilled fields for name etc
   case class CreatePage(httpRequest: HttpRequest) extends PutInfo //create page and return JSON
@@ -162,11 +163,11 @@ object F_BackBone {
   case class DeleteUser(id: BigInt) extends DeleteInfo
   case class DeletePage(id: BigInt) extends DeleteInfo
   case class DeletePicture(id: BigInt) extends DeleteInfo
-  case class DeleteAlbum(id: BigInt) extends DeleteInfo //will not delete default album, deletes all pictures in album
+  case class DeleteAlbum(id: BigInt, defaultOverride: Boolean = false) extends DeleteInfo //will not delete default album, deletes all pictures in album
   case class DeletePost(id: BigInt) extends DeleteInfo
 
   //System messages and functions
-
+  case class VerifyAuthenticationCookie(userID: BigInt, cookie: HttpCookie)
   case class CreateUserProfile(userID: BigInt) //replies with user profile id
   case class DeleteUserProfile(profileID: BigInt)
   case class CreateDefaultAlbum(ownerID: BigInt)

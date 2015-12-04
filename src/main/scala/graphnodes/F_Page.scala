@@ -6,6 +6,7 @@ case class F_Page(name: String, description: String,
                    dateOfCreation: Date,
                    userList: List[BigInt], //list of userID
                    posts: List[BigInt],
+                   defaultAlbumID: BigInt,
                    albumIDs: List[BigInt],
                    pictureID: BigInt,
                    ownerID: BigInt,
@@ -20,5 +21,7 @@ object F_Page {
   val descriptionString = "description"
   val ownerString = "owner"
 
-  val changableParameters = List(nameString, descriptionString, ownerString, joinPageString, leavePageString)
+  //changable fields
+  val nameField = "name"
+  val descriptionField = "description"
 }
