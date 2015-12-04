@@ -1,24 +1,21 @@
 package system.workers
 
-import java.io.{FileOutputStream, FileInputStream, File}
-import java.util.{Date, MissingFormatArgumentException}
+import java.io.{File, FileInputStream, FileOutputStream}
+import java.util.Date
 
 import akka.actor
-import akka.actor.{Props, ActorRef, ActorLogging, Actor}
-import akka.pattern.{pipe, ask}
+import akka.actor.{Actor, ActorLogging, ActorRef, Props}
+import akka.pattern.pipe
 import akka.util.Timeout
 import graphnodes._
-import spray.http.{Uri, HttpRequest}
-import system.F_BackBone._
-import util.MyJsonProtocol
-
-import scala.concurrent.{Await, Future}
-import scala.concurrent.duration._
-
+import spray.http.HttpRequest
 import spray.json._
-import MyJsonProtocol._
+import system.F_BackBone._
+import util.MyJsonProtocol._
 
-import language.postfixOps
+import scala.concurrent.Future
+import scala.concurrent.duration._
+import scala.language.postfixOps
 
 class F_PictureHandler(backbone: ActorRef) extends Actor with ActorLogging {
   import F_PictureHandler._
@@ -80,7 +77,7 @@ class F_PictureHandler(backbone: ActorRef) extends Actor with ActorLogging {
     case DeletePicture(id) =>
       deletePicture(id)
 
-    case DeleteAlbum(id, over) =>
+    case DeleteAlbumMessage(id, over) =>
       deleteAlbum(id, over)
   }
 
@@ -95,7 +92,7 @@ class F_PictureHandler(backbone: ActorRef) extends Actor with ActorLogging {
           case F_Picture.`albumField` =>
             val newAlbumID = BigInt(currentField._2.toString(), 16)
             val oldAlbumID = picture.containingAlbum
-            val oldAlbum = albums.get(oldAlbum).get
+            val oldAlbum = albums.get(oldAlbumID).get
             albums.get(newAlbumID) match {
               case Some(alb) => albums.put(newAlbumID, alb.copy(images = picture.pictureID :: alb.images)) //put it in the new album
               case None =>

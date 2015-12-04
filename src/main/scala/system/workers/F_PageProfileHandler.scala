@@ -26,7 +26,7 @@ class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
 
   val pages = collection.mutable.Map[BigInt, F_Page]()
   val profiles = collection.mutable.Map[BigInt, F_UserProfileE]()
-  val posts = collection.mutable.Map[BigInt, Either[F_Post, F_PostE]]()
+  val posts = collection.mutable.Map[BigInt, F_PostEOrPost]()
 
   def receive = {
     case GetProfileInfo(id) => //get will just send the encrypted data no problem, if they can decrypt it they can have it, but only friends will have the key
@@ -49,8 +49,8 @@ class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
       val replyTo = sender()
 
       posts.get(id) match {
-        case Some(post: Left) => Future(post.toJson.compactPrint).mapTo[String] pipeTo replyTo
-        case Some(post: Right) => Future(post.toJson.compactPrint).mapTo[String] pipeTo replyTo
+        case Some(post: F_Post) => Future(post.toJson.compactPrint).mapTo[String] pipeTo replyTo
+        case Some(post: F_PostE) => Future(post.toJson.compactPrint).mapTo[String] pipeTo replyTo
         case None => replyTo ! noSuchPostFailure(id)
       }
 
@@ -114,39 +114,41 @@ class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
     val postID = getUniqueRandomBigInt(posts)
 
     try {
-      var location: BigInt = 0
       val isProfile = request.uri.query.get(F_Post.locationTypeString).get == F_Post.locationProfile
-      val newPost = if(isProfile) {
-        val pst = request.entity.asString.parseJson.convertTo[F_PostE].copy(dateOfCreation = new Date, postID = postID)
-        location = pst.location
-        Right(pst)
+      val newPost: F_PostEOrPost = if(isProfile) {
+        val pst = request.entity.asString.parseJson.convertTo[F_PostE].copy(dateOfCreation = new Date, postID = postID, locationType = F_Post.locationProfile)
+        //TODO check if location is valid
+        pst
       } else {
-        val pst = request.entity.asString.parseJson.convertTo[F_Post].copy(dateOfCreation = new Date, postID = postID)
-        location = pst.location
-        Left(pst)
+        val pst = request.entity.asString.parseJson.convertTo[F_Post].copy(dateOfCreation = new Date, postID = postID, locationType = F_Post.locationPage)
+        //TODO check if location is valid
+        pst
       }
 
       val replyTo = sender()
       posts.put(postID, newPost)
 
       newPost match {
-        case Left(_) =>
-          pages.get(location) match {
+        case _: F_Post =>
+          pages.get(newPost.location) match {
             case Some(page) =>
-              pages.put(location, page.copy(posts = postID :: page.posts))
+              pages.put(newPost.location, page.copy(posts = postID :: page.posts))
             case None =>
               throw new IllegalArgumentException("That page does not exist to post on")
           }
-        case Right(_) =>
-          profiles.get(location) match {
+        case _: F_PostE =>
+          profiles.get(newPost.location) match {
             case Some(profile) =>
-              profiles.put(location, profile.copy(posts = postID :: profile.posts))
+              profiles.put(newPost.location, profile.copy(posts = postID :: profile.posts))
             case None =>
               throw new IllegalArgumentException("That profile does not exist to post on")
           }
       }
 
-      Future(newPost.toJson.compactPrint).mapTo[String] pipeTo replyTo
+      newPost match {
+        case x: F_Post => Future(x.toJson.compactPrint).mapTo[String] pipeTo replyTo
+        case x: F_PostE => Future(x.toJson.compactPrint).mapTo[String] pipeTo replyTo
+      }
     } catch {
       case ex: Exception =>
         sender ! actor.Status.Failure(ex)
@@ -245,8 +247,8 @@ class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
       val updateFields = request.entity.asString.parseJson.asJsObject.fields
 
       val updatedPost = post match {
-        case Left(p) => Left(updateCurrentPost(p, updateFields))
-        case Right(p) => Right(updateCurrentPostE(p, updateFields))
+        case p: F_Post => updateCurrentPost(p, updateFields)
+        case p: F_PostE => updateCurrentPostE(p, updateFields)
       }
 
       posts.put(id, updatedPost)
@@ -267,7 +269,7 @@ class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
     pages.remove(id) match {
       case Some(x) =>
         x.albumIDs.foreach(backbone ! DeleteAlbum(_))
-        backbone ! DeleteAlbum(x.defaultAlbumID, defaultOverride = true)
+        backbone ! DeleteAlbumMessage(x.defaultAlbumID, defaultOverride = true)
         x.posts.foreach(backbone ! DeletePost(_))
         sender ! "Page Deleted!"
       case None => sender ! noSuchPageFailure(id)
@@ -277,10 +279,10 @@ class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
   def deletePost(id: BigInt) = {
     try {
       posts.remove(id) match {
-        case Some(Left(x)) =>
+        case Some(x: F_Post) =>
           val containingPage = pages.getOrElse(x.location, throw noSuchPageException(List(x.location)))
           pages.put(x.location, containingPage.copy(posts = containingPage.posts.filter(_ != x.postID)))
-        case Some(Right(x)) =>
+        case Some(x: F_PostE) =>
           val containingProfile = profiles.getOrElse(x.location, throw noSuchPageException(List(x.location)))
           profiles.put(x.location, containingProfile.copy(posts = containingProfile.posts.filter(_ != x.postID)))
         case None => sender ! noSuchPostFailure(id)

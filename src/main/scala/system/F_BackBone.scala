@@ -105,8 +105,8 @@ class F_BackBone extends Actor with ActorLogging {
     case DeletePicture(id) =>
       f_pictureHandler forward DeletePicture(id)
 
-    case DeleteAlbum(id, over) =>
-      f_pictureHandler forward DeleteAlbum(id, over)
+    case DeleteAlbum(id) =>
+      f_pictureHandler forward DeleteAlbumMessage(id, defaultOverride = false)
 
     case DeletePost(id) =>
       f_pageProfileHandler forward DeletePost(id)
@@ -163,7 +163,8 @@ object F_BackBone {
   case class DeleteUser(id: BigInt) extends DeleteInfo
   case class DeletePage(id: BigInt) extends DeleteInfo
   case class DeletePicture(id: BigInt) extends DeleteInfo
-  case class DeleteAlbum(id: BigInt, defaultOverride: Boolean = false) extends DeleteInfo //will not delete default album, deletes all pictures in album
+  case class DeleteAlbum(id: BigInt) extends DeleteInfo //will not delete default album, deletes all pictures in album
+  case class DeleteAlbumMessage(id: BigInt, defaultOverride: Boolean = false)
   case class DeletePost(id: BigInt) extends DeleteInfo
 
   //System messages and functions

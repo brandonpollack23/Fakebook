@@ -4,12 +4,21 @@ import java.security.Key
 import java.util.Date
 import util.Crypto._
 
+trait F_PostEOrPost {
+  val contents: Any
+  val creator: BigInt
+  val locationType: String //either profile or page
+  val location: BigInt
+  val dateOfCreation: Date
+  val postID: BigInt
+}
+
 case class F_Post(contents: String,
                    creator: BigInt,
                    locationType: String, //either profile or page
                    location: BigInt,
                    dateOfCreation: Date,
-                   postID: BigInt) {
+                   postID: BigInt) extends F_PostEOrPost{
   def encryptPost(key: Key) = {
     F_PostE(contents.getBytes.encryptAES(key), creator, locationType, location, dateOfCreation,
       postID)
@@ -21,7 +30,7 @@ case class F_PostE(contents: Array[Byte],
                   locationType: String, //either profile or page
                   location: BigInt,
                   dateOfCreation: Date,
-                  postID: BigInt) {
+                  postID: BigInt) extends F_PostEOrPost{
   def decryptPost(key: Key) = {
     F_Post(contents.decryptAES(key).byteArray2String, creator, locationType, location,
       dateOfCreation, postID)

@@ -388,7 +388,7 @@ trait F_ListenerService extends HttpService {
     }
   }
 
-  def setUpAuthenticateUser(req: RequestContext) = {
+  def setUpAuthenticateUser(req: RequestContext): HttpResponse = {
     val id = req.unmatchedPath.dropChars(1).toString()
 
     if(!id.contains("/")) {
@@ -396,9 +396,9 @@ trait F_ListenerService extends HttpService {
         val idBig = BigInt(id, 16)
         Await.ready((backbone ? SetUpAuthenticateUser(idBig, req.request)).mapTo[HttpResponse], timeout).value.get match {
           case Success(httpresponse) =>
-
+            httpresponse
           case Failure(ex) =>
-
+            HttpResponse(BadRequest, "No such user " + id)
         }
       } catch {
         case e: NumberFormatException =>

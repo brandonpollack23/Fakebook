@@ -44,7 +44,7 @@ class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
       val replyTo = sender()
 
       users.get(id) match {
-        case Some(user) => Future(user.toJson.compactPrint) pipeTo replyTo
+        case Some(user) => Future(user.userE.toJson.compactPrint) pipeTo replyTo
         case None => replyTo ! noSuchUserFailure(id)
       }
 
@@ -147,7 +147,7 @@ class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
 
       val replyTo = sender()
 
-      Future(updatedUser.toJson.compactPrint).mapTo[String] pipeTo replyTo
+      Future(updatedUser.userE.toJson.compactPrint).mapTo[String] pipeTo replyTo
     } catch {
       case ex: Exception =>
         sender ! actor.Status.Failure(ex)
@@ -272,7 +272,7 @@ class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
         case (Some(user), aesKeyBytes) =>
           val solutionHash = md.digest(BigInt(cookie.content, 16).toByteArray)
           if (user.sessionExpiration after new Date) {
-            if (solutionHash == user.authenticationAnswerHash) sender ! actor.Status.Success else sender ! actor.Status.Failure(new Exception("cookie key does not match with session"))
+            if (solutionHash equals user.authenticationAnswerHash) sender ! actor.Status.Success else sender ! actor.Status.Failure(new Exception("cookie key does not match with session"))
           } else {
             sender ! actor.Status.Failure(new Exception("your session has expired, please reverify"))
           }

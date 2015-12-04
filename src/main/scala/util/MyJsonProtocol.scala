@@ -49,6 +49,16 @@ object MyJsonProtocol extends DefaultJsonProtocol {
     }
   }
 
+  implicit object SecretKeyJson extends RootJsonFormat[SecretKey] {
+    def write(k: SecretKey) = BigInt(k.getEncoded).toJson
+    def read (k: JsValue) = k match {
+      case JsString(num) =>
+        val byteArray = BigInt(num, 16).toByteArray
+        new SecretKeySpec(byteArray, 0, byteArray.length, "AES")
+      case _ => deserializationError("hex string SecretKey expected")
+    }
+  }
+
   implicit val userFormat = jsonFormat11(F_User.apply)
   implicit val userEFormat = jsonFormat11(F_UserE.apply)
   implicit val profileFormat = jsonFormat8(F_UserProfile.apply)
@@ -57,7 +67,7 @@ object MyJsonProtocol extends DefaultJsonProtocol {
   implicit val postEFormat = jsonFormat6(F_PostE.apply)
   implicit val pictureFormat = jsonFormat7(F_Picture.apply)
   implicit val pictureEFormat = jsonFormat7(F_PictureE.apply)
-  implicit val albumFormat = jsonFormat6(F_Album.apply)
-  implicit val albumEFormat = jsonFormat6(F_AlbumE.apply)
+  implicit val albumFormat = jsonFormat7(F_Album.apply)
+  implicit val albumEFormat = jsonFormat7(F_AlbumE.apply)
   implicit val pageFormat = jsonFormat10(F_Page.apply)
 }
