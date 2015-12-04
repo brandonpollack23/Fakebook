@@ -193,7 +193,7 @@ class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
           case F_UserProfile.`profilePictureIDField` =>
             //TODO check if the album ID exists
             updateProfile(profile.copy(profilePictureID = BigInt(currentParameter._2.toString(), 16)), fields.tail)
-          case F_UserProfile.`descriptionField` => updateProfile(profile.copy(description = currentParameter._2.toString().getBytes), fields.tail)
+          case F_UserProfile.`descriptionField` => updateProfile(profile.copy(description = currentParameter._2.convertTo[Array[Byte]]), fields.tail)
           case _ =>
             updateProfile(profile, fields.tail)
         }
@@ -217,7 +217,7 @@ class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
     }
   }
 
-  def updatePostData(id: BigInt, request: HttpRequest) = { //TODO continue chagjign to entity mode from here
+  def updatePostData(id: BigInt, request: HttpRequest) = {
     def updateCurrentPost(post: F_Post, fields: Map[String, JsValue]): F_Post = {
       if(fields.isEmpty) post else {
         val currentField = fields.head

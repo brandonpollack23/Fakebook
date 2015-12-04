@@ -67,3 +67,6 @@ everything is sent with JSON now, including updating values, empty strings mean 
 F_posts need a query to tell it where it is (page/profile)
 page Post needs a query for adding a user, in this case no JSON entity is needed
 when looking at default album there is no need to decrypt, just convertTo[F_Album] insted of F_AlbumE, same with pictures on a page, don't decrypt just convertTo[F_Picture]
+
+now friend requests are handled not htrough a update user but through /users/request/handle uri with QUERY of accepted friend
+when you accept a friend request your encrypted AES key (RSA with their public key) is in your entity as JSON array of Byte

@@ -75,6 +75,11 @@ trait F_ListenerService extends HttpService {
               } ~
               post {
                 pathPrefix("request") {
+                  pathPrefix("handle") {
+                    detach() {
+                      extractRequestContext{ request => complete(genericPost(request, HandleFriendRequest))}
+                    }
+                  } ~
                   detach() {
                     extractRequestContext { request => complete(genericPost(request, RequestFriend)) }
                   }

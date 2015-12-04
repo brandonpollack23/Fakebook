@@ -11,7 +11,7 @@ import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
 import graphnodes.F_User._
-import graphnodes.{F_User, F_UserES}
+import graphnodes.{F_UserE, F_User, F_UserES}
 import spray.http.HttpHeaders.Cookie
 import spray.http._
 import spray.http.StatusCodes._
@@ -35,12 +35,13 @@ class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
 
   val md = MessageDigest.getInstance("SHA-256")
 
+  //TODO check all creates and make sure default stuff is overriden that should be (eg no friends on creation)
   def receive: Receive = {
     case CreateUser(request) =>
       createUser(request)
 
     case GetUserInfo(id) =>
-      val replyTo = sender
+      val replyTo = sender()
 
       users.get(id) match {
         case Some(user) => Future(user.toJson.compactPrint) pipeTo replyTo
@@ -54,11 +55,12 @@ class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
       try {
         users.remove(id) match {
           case Some(user) =>
-            user.friends.foreach { x =>
-              val friend = users.getOrElse(x, throw noSuchUserException(List(x)))
-              users.put(x, friend.copy(friends = friend.friends.filter(_ != user.userID)))
+            user.userE.friends.foreach { userTuple =>
+              val friendID = userTuple._1
+              val friend = users.getOrElse(friendID, throw noSuchUserException(List(friendID)))
+              users.put(friendID, friend.copy(userE = friend.userE.copy(friends = friend.userE.friends.filter(_._1 != id)))) //remove user from friend's friends
             }
-            backbone ! DeleteUserProfile(user.profileID)
+            backbone ! DeleteUserProfile(user.userE.profileID)
             sender ! "User Deleted!"
           case None => sender ! noSuchUserFailure(id)
         }
@@ -67,7 +69,7 @@ class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
           sender ! actor.Status.Failure(ex)
       }
 
-    case RequestFriend(requesterID, request) =>
+    case RequestFriend(requesterID, request) => //TODO make sure this is handled right
       requestFriend(requesterID, request)
 
     case HandleFriendRequest(acceptorID, request) =>
@@ -93,80 +95,59 @@ class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
       (backbone ? CreateUserProfile(userID)).mapTo[BigInt]
     }
 
-    def getAllComponents(id: BigInt, params: Uri.Query) = {
-      def extractComponent(key: String) = {
-        params.find(_._1 == key).map(_._2) match {
-          case Some(x) => x
-          case None => throw new MissingFormatArgumentException("there is no entry for " + key)
-        }
-      }
-
-      val profileIDF = createProfile(id)
-
-      (extractComponent(firstNameString), extractComponent(lastNameString), extractComponent(bioString), extractComponent(ageString).toInt,
-        dateFormatter.parse(extractComponent(dobString)), /*date of creation*/new Date, /*empty friends list*/ List[BigInt](), /*no friend requests*/ List[BigInt](),
-        Await.result(profileIDF, 5 seconds), /*userid*/ id)
-    }
-
-    val id = getUniqueRandomBigInt(users)
-
-    val params = request.uri.query
+    val userID = getUniqueRandomBigInt(users)
 
     try {
-      val newUser = (F_User.apply _).tupled(getAllComponents(id, params))
-      users.put(id, newUser)
-      val replyTo = sender
-      Future(newUser.toJson.compactPrint) pipeTo replyTo
+      val profileID = createProfile(userID)
+      val newUser = request.entity.asString.parseJson.convertTo[F_UserE].copy(dateOfCreation = new Date, friends = List[(BigInt, Array[Byte])](), userID = userID, friendRequests = List[(BigInt, Array[Byte])](),
+        profileID = Await.result(profileID, 5 seconds))
+      users.put(userID, F_UserES(newUser, BigInt(0), new Date))
+      val replyTo = sender()
+      Future(newUser.toJson.compactPrint).mapTo[String] pipeTo replyTo
     } catch {
       case ex: Exception =>
-        log.error("User error: " + ex + " " + ex.getCause)
+        log.error("user error: " + ex + " " + ex.getCause)
         sender ! actor.Status.Failure(ex)
     }
   }
 
-  /** TODO place restrictions on certain changes
+  /**
    * update a users info based on what parameters may be in the request
    * @param id id of user to update
    * @param request request
    */
   def updateUserData(id: BigInt, request: HttpRequest) {
-    def updateCurrentUserInstance(user: F_User, params: Uri.Query, parametersRemaining: List[String]): F_User = {
-      if(parametersRemaining.isEmpty) {
-        user
-      } else {
-        val currentParameter = parametersRemaining.head
-        params.get(currentParameter) match {
-          case Some(value) =>
-            currentParameter match {
-              case `lastNameString` => updateCurrentUserInstance(user.copy(lastName = value), params, parametersRemaining.tail)
-              case `firstNameString` => updateCurrentUserInstance(user.copy(firstName = value), params, parametersRemaining.tail)
-              case `bioString` => updateCurrentUserInstance(user.copy(biography = value), params, parametersRemaining.tail)
-              case `ageString` => updateCurrentUserInstance(user.copy(age = value.toInt), params, parametersRemaining.tail)
-              case `dobString` => updateCurrentUserInstance(user.copy(dateOfBirth = dateFormatter.parse(value)), params, parametersRemaining.tail)
-              case x @ `friendRequestString` =>
-                if (params.get(x).get == "true") self ! HandleFriendRequest(id, request)
-                user //NOTE: when it is a friend request other actions stop and you have to get the user again to see the updated list
-              case _ => throw new IllegalArgumentException("there is no case to handle such parameter in the list (system issue)")
-            }
-          case None =>
-            updateCurrentUserInstance(user, params, parametersRemaining.tail)
+    def updateCurrentUserES(user: F_UserES, fields: Map[String, JsValue]): F_UserES = {
+     def updateCurrentUser(user: F_UserE, fields: Map[String, JsValue]): F_UserE = {
+        if (fields.isEmpty) user
+        else {
+          val currentParameter = fields.head
+          currentParameter._1 match {
+            case F_User.`lastNameField` => updateCurrentUser(user.copy(lastName = currentParameter._2.convertTo[Array[Byte]]), fields.tail)
+            case `firstNameField` => updateCurrentUser(user.copy(firstName = currentParameter._2.convertTo[Array[Byte]]), fields.tail)
+            case `bioField` => updateCurrentUser(user.copy(biography = currentParameter._2.convertTo[Array[Byte]]), fields.tail)
+            case `ageField` => updateCurrentUser(user.copy(age = currentParameter._2.convertTo[Array[Byte]]), fields.tail)
+            case `dobField` => updateCurrentUser(user.copy(dateOfBirth = currentParameter._2.convertTo[Array[Byte]]), fields.tail)
+            case _ => updateCurrentUser(user, fields.tail)
+          }
         }
       }
+
+      user.copy(userE = updateCurrentUser(user.userE, fields))
     }
 
     try{
       val user = users.getOrElse(id, throw noSuchUserException(List(id)))
 
-      val params = request.uri.query
+      val fields = request.entity.asString.parseJson.asJsObject.fields
 
-
-      val updatedUser = updateCurrentUserInstance(user, params, changableParameters)
+      val updatedUser = updateCurrentUserES(user, fields)
 
       users.put(id, updatedUser)
 
-      val replyTo = sender
+      val replyTo = sender()
 
-      Future(updatedUser.toJson.compactPrint) pipeTo replyTo
+      Future(updatedUser.toJson.compactPrint).mapTo[String] pipeTo replyTo
     } catch {
       case ex: Exception =>
         sender ! actor.Status.Failure(ex)
@@ -180,10 +161,13 @@ class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
    */
   def requestFriend(requesterID: BigInt, request: HttpRequest) {
     try {
-      val requestedFriendID = BigInt(request.uri.query.getOrElse(friendRequestString, throw new MalformedAttributeException("no friendrequest parameter!")))
+      val requestedFriendID = BigInt(request.uri.query.getOrElse(friendRequestString, throw new MalformedAttributeException("no friendrequest parameter!")), 16)
       (users.get(requesterID), users.get(requestedFriendID)) match {
-        case (Some(requester), Some(requested)) =>
-          users.put(requesterID, requested.copy(friendRequests = requesterID :: requested.friendRequests))
+        case (Some(requesterS), Some(requestedS)) =>
+          val requested = requestedS.userE
+          val requestedID = requested.userID
+          val encryptedAES = request.entity.asString.parseJson.convertTo[Array[Byte]]
+          users.put(requestedID, requestedS.copy(userE = requested.copy(friendRequests = (requesterID, encryptedAES) :: requested.friendRequests)))
           sender ! "Friend Request Sent!"
         case (Some(_), None) =>
           sender ! noSuchUserFailure(requestedFriendID)
@@ -209,17 +193,24 @@ class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
       val acceptedString = request.uri.query.getOrElse(acceptFriendString, throw new MalformedAttributeException("no acceptance parameter!"))
       val accepted = if (acceptedString == "true") true else false
       (users.get(acceptorID), users.get(requesterID)) match {
-        case (Some(acceptor), Some(requester)) =>
-          if (acceptor.friendRequests.contains(requesterID)) {
-            //if this request actually occurred
-            if (accepted) {
-              users.put(acceptorID, acceptor.copy(friends = requesterID :: acceptor.friends)) //add to each others friends lists
-              users.put(requesterID, requester.copy(friends = acceptorID :: requester.friends))
-              sender ! "Friend Accepted!"
-            } else {
-              users.put(acceptorID, acceptor.copy(friendRequests = acceptor.friendRequests.filter(_ != requesterID))) //remove requst from list
-              sender ! "Friend Denied!"
-            }
+        case (Some(acceptorS), Some(requesterS)) =>
+          val requester = requesterS.userE
+          val acceptor = acceptorS.userE
+          val requesterTupleO = acceptor.friendRequests.find(_._1 == requesterID)
+          val acceptorTuple = (acceptorID, request.entity.asString.parseJson.convertTo[Array[Byte]])
+          requesterTupleO match {
+            case Some(requesterTuple) =>
+              if (accepted) { //if this request actually occurred
+                users.put(acceptorID, acceptorS.copy(userE = acceptor.copy(friends = requesterTuple :: acceptor.friends))) //add to each others friends lists
+                users.put(requesterID, requesterS.copy(userE = requester.copy(friends = acceptorTuple :: requester.friends)))
+                sender ! "Friend Accepted!"
+              }
+              else {
+                users.put(acceptorID, acceptorS.copy(userE = acceptor.copy(friendRequests = acceptor.friendRequests.filter(_ != requesterID)))) //remove requst from list
+                sender ! "Friend Denied!"
+              }
+            case None =>
+              sender ! actor.Status.Failure(new IllegalArgumentException("No such friend has requested you"))
           }
         case (Some(_), None) =>
           sender ! noSuchUserFailure(requesterID)
@@ -238,9 +229,11 @@ class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
     try {
       val removedID = BigInt(request.uri.query.getOrElse(friendRemoveString, throw new MalformedAttributeException("no friend remove parameter!")), 16)
       (users.get(removerID), users.get(removedID)) match {
-        case (Some(remover), Some(removed)) =>
-          users.put(removerID, remover.copy(friends = remover.friends.filter(_ != removedID)))
-          users.put(removedID, removed.copy(friends = removed.friends.filter(_ != removerID)))
+        case (Some(removerS), Some(removedS)) =>
+          val remover = removerS.userE
+          val removed = removedS.userE
+          users.put(removerID, removerS.copy(userE = remover.copy(friends = remover.friends.filter(_ != removedID))))
+          users.put(removedID, removedS.copy(userE = removed.copy(friends = removed.friends.filter(_ != removerID))))
         case (Some(remover), None) =>
           sender ! noSuchUserFailure(removedID)
         case (None, Some(removed)) =>
