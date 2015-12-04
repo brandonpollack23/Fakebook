@@ -67,6 +67,7 @@ object MyJsonProtocol extends DefaultJsonProtocol {
   implicit val postEFormat = jsonFormat6(F_PostE.apply)
   implicit val pictureFormat = jsonFormat7(F_Picture.apply)
   implicit val pictureEFormat = jsonFormat7(F_PictureE.apply)
+  implicit val pictureTransmitFormat = jsonFormat2(F_PictureTransmit.apply)
   implicit val albumFormat = jsonFormat7(F_Album.apply)
   implicit val albumEFormat = jsonFormat7(F_AlbumE.apply)
   implicit val pageFormat = jsonFormat10(F_Page.apply)

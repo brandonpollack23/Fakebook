@@ -4,7 +4,7 @@ import java.security.Key
 import java.util.Date
 import util.Crypto._
 
-trait F_PostEOrPost {
+sealed trait F_PostEOrPost {
   val contents: Any
   val creator: BigInt
   val locationType: String //either profile or page

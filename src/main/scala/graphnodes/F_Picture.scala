@@ -29,6 +29,8 @@ case class F_PictureE(name: Array[Byte], description: Array[Byte],
   }
 }
 
+case class F_PictureTransmit(pictureInfo: F_PictureE, picture: Array[Byte])
+
 object F_Picture {
   //changable
   val nameField = "name"

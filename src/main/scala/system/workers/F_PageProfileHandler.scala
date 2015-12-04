@@ -72,6 +72,9 @@ class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
     case UpdatePostData(id, request) =>
       updatePostData(id, request)
 
+    case JoinPage(id, request) =>
+      joinPage(id, request)
+
     case DeletePage(id) =>
       deletePage(id)
 
@@ -182,6 +185,22 @@ class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
       Future(updatedPage.toJson.compactPrint).mapTo[String] pipeTo replyTo
     } catch {
       case ex: Exception =>
+        sender ! actor.Status.Failure(ex)
+    }
+  }
+
+  def joinPage(pageID: BigInt, request: HttpRequest) {
+    try {
+      val page = pages.getOrElse(pageID, throw noSuchPageException(List(pageID)))
+      val addUser = BigInt(request.uri.query.getOrElse(F_Page.newUserString, throw new Exception("Missing user query!")), 16)//TODO check if user exists
+      val updatedPage = pages.put(pageID, page.copy(userList = addUser :: page.userList))
+
+      val replyTo = sender()
+
+      Future(updatedPage.toJson.compactPrint).mapTo[String] pipeTo replyTo
+    } catch {
+      case ex: Exception =>
+        log.error("error adding user")
         sender ! actor.Status.Failure(ex)
     }
   }

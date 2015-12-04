@@ -1,11 +1,13 @@
 package util
 
-import java.io.{ObjectInputStream, ByteArrayInputStream, ByteArrayOutputStream, ObjectOutputStream}
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream, ObjectInputStream, ObjectOutputStream}
 import java.nio.ByteBuffer
-import java.security.{Key, PrivateKey, PublicKey}
+import java.security.spec.X509EncodedKeySpec
+import java.security.{KeyFactory, Key}
 import javax.crypto.Cipher
+import javax.crypto.spec.SecretKeySpec
 
-import language.implicitConversions
+import scala.language.implicitConversions
 
 object Crypto {
   implicit class ByteArrayIntConverter(x: Int) {
@@ -14,6 +16,18 @@ object Crypto {
 
   implicit class ByteArrayBoolConverter(x: Boolean) {
     def toByteArray: Array[Byte] = if(x) new Array(1) else new Array(0)
+  }
+
+  implicit class ByteArrayToSecretKey(x: Array[Byte]) {
+    def toSecretKey = new SecretKeySpec(x, 0, x.length, "AES")
+  }
+
+  implicit class ByteArrayToRSAPublic(x: Array[Byte]) {
+    def toPublicKey = KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(x))
+  }
+
+  implicit class ByteArrayToRSAPrivate(x: Array[Byte]) {
+    def toPrivateKey = KeyFactory.getInstance("RSA").generatePrivate(new X509EncodedKeySpec(x))
   }
 
   implicit class ByteArrayAnyConverter(x: java.io.Serializable) {

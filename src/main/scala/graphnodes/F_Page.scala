@@ -13,13 +13,8 @@ case class F_Page(name: String, description: String,
                    ID: BigInt)
 
 object F_Page {
-  //in creation query string
-  val joinPageString = "join"
-  val leavePageString = "leave"
+  //query that contains userID of who to add to page
   val newUserString = "newuser"
-  val nameString = "name"
-  val descriptionString = "description"
-  val ownerString = "owner"
 
   //changable fields
   val nameField = "name"

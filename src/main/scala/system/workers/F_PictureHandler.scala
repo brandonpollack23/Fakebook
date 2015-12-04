@@ -27,7 +27,7 @@ class F_PictureHandler(backbone: ActorRef) extends Actor with ActorLogging {
   val pictures = collection.mutable.Map[BigInt, F_PictureE]()
   val pictureData = collection.mutable.Map[BigInt, File]()
 
-  val defaultPictureFile = new File("images/defaultpic.jpg")
+  val defaultPictureFile = new File("./images/defaultpic.jpg") //TODO put dummy file here
 
   pictureData.put(defaultPictureDataID, defaultPictureFile)
 
@@ -155,11 +155,11 @@ class F_PictureHandler(backbone: ActorRef) extends Actor with ActorLogging {
   }
 
   def createImage(request: HttpRequest) {
-    val pictureID = getUniqueRandomBigInt(pictures)
-    val imageID = placeImage(request)
-
     try {
-      val newPicture = request.entity.asString.parseJson.convertTo[F_PictureE].copy(fileID = imageID, pictureID = pictureID, dateOfCreation = new Date)
+      val pictureID = getUniqueRandomBigInt(pictures)
+      val pictureTransmit = request.entity.asString.parseJson.convertTo[F_PictureTransmit]
+      val imageID = placeImage(pictureTransmit.picture)
+      val newPicture = pictureTransmit.pictureInfo.copy(fileID = imageID, pictureID = pictureID, dateOfCreation = new Date)
       val albumID = newPicture.containingAlbum
       albums.get(albumID) match {
         case Some(album) =>
@@ -231,11 +231,12 @@ class F_PictureHandler(backbone: ActorRef) extends Actor with ActorLogging {
     }
   }
 
-  def placeImage(request: HttpRequest) = { //places image in database and returns the id
+  def placeImage(picture: Array[Byte]) = { //places image in database and returns the id
     val imageID = getUniqueRandomBigInt(pictureData)
     //SECURITY CHANGE make sure it is actually an image (not now)
+    val fileStream = new FileOutputStream("./images/" + imageID + ".jpg")
+    fileStream.write(picture)
     val file = new File("./images/" + imageID + ".jpg")
-    new FileOutputStream(file).write(request.entity.data.toByteArray)
     pictureData.put(imageID, file)
     imageID
   }

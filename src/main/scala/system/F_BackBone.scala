@@ -149,6 +149,7 @@ object F_BackBone {
   case class RequestFriend(requesterID: BigInt, httpRequest: HttpRequest) extends PostInfo //id from, query to
   case class HandleFriendRequest(acceptorID: BigInt, httpRequest: HttpRequest) extends PostInfo //id acceptor, query requester
   case class RemoveFriend(userID: BigInt, httpRequest: HttpRequest) extends PostInfo //restful id is remover, request is removed
+  case class JoinPage(pageID: BigInt, httpRequest: HttpRequest) extends PostInfo //query contains ID of user to add
   //special authentication stuff
   case class SetUpAuthenticateUser(userID: BigInt, httpRequest: HttpRequest) extends PostInfo
 

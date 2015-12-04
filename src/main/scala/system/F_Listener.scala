@@ -114,6 +114,11 @@ trait F_ListenerService extends HttpService {
             }
         } ~
         pathPrefix("page") {
+          pathPrefix("join") {
+            detach() {
+              extractRequestContext { request => complete(genericPost(request, JoinPage, authRequired = false))}
+            }
+          } ~
           get {
             detach() {
               extractRequestContext { request => complete(genericGet(request, GetPageInfo)) }
@@ -256,7 +261,7 @@ trait F_ListenerService extends HttpService {
    * @param messageConstructor the message to send
    * @return
    */
-  def genericPost(req: RequestContext, messageConstructor: (BigInt, HttpRequest) => PostInfo) = {
+  def genericPost(req: RequestContext, messageConstructor: (BigInt, HttpRequest) => PostInfo, authRequired: Boolean = true) = {
     def post = () => {
       val id = req.unmatchedPath.dropChars(1).toString()
 
@@ -285,7 +290,7 @@ trait F_ListenerService extends HttpService {
       }
     }
 
-    verifyCookie(req.request, post)
+    if(authRequired) verifyCookie(req.request, post) else post.apply()
   }
 
   /**
