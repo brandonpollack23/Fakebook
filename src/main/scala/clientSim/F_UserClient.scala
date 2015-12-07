@@ -24,11 +24,18 @@ import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
 import javax.crypto.SecretKey
 import java.security.KeyPairGenerator
+import spray.io.ClientSSLEngineProvider
 
 
 
 
 class F_UserClient extends Actor with ActorLogging {
+
+  implicit val myEngineProvider = ClientSSLEngineProvider { engine =>
+    engine.setEnabledCipherSuites(Array("TLS_RSA_WITH_AES_256_CBC_SHA"))
+    engine.setEnabledProtocols(Array("SSLv3", "TLSv1"))
+    engine
+  }
 
 /*
  * Code block 1
