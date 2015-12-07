@@ -1,9 +1,11 @@
 package clientSim
 
-import java.security.KeyPair
+import java.security._
 import javax.crypto.KeyGenerator
+import javax.net.ssl.{SSLContext, X509TrustManager, TrustManager}
+import javax.security.cert.X509Certificate
 import util.MyJsonProtocol._
-import util.Crypto
+import util.{DummyTrustManager, Crypto}
 import akka.actor.Actor
 import spray.client.pipelining._
 import spray.client.pipelining.sendReceive
@@ -23,19 +25,12 @@ import scala.util.Random
 import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
 import javax.crypto.SecretKey
-import java.security.KeyPairGenerator
-import spray.io.ClientSSLEngineProvider
+import spray.io.{SSLContextProvider, ClientSSLEngineProvider}
 
 
 
 
 class F_UserClient extends Actor with ActorLogging {
-
-  implicit val myEngineProvider = ClientSSLEngineProvider { engine =>
-    engine.setEnabledCipherSuites(Array("TLS_RSA_WITH_AES_256_CBC_SHA"))
-    engine.setEnabledProtocols(Array("SSLv3", "TLSv1"))
-    engine
-  }
 
 /*
  * Code block 1
@@ -104,7 +99,7 @@ class F_UserClient extends Actor with ActorLogging {
 
   def authRequest() = {
 
-    val uri = Uri("https://localhost:8080/users/auth/"+userId.toString(16))
+    val uri = Uri("http://localhost:8080/users/auth/"+userId.toString(16))
 
     val pipeline = sendReceive ~> unmarshal[String]
     val responseFuture = pipeline {Post(uri)}
@@ -129,7 +124,7 @@ class F_UserClient extends Actor with ActorLogging {
 
     case "user" =>
 
-      val uri = Uri("https://localhost:8080/users/newuser")
+      val uri = Uri("http://localhost:8080/users/newuser")
 
       val pipeline = sendReceive ~> unmarshal[String]
       val responseFuture = pipeline {Put(uri, HttpEntity(MediaTypes.`application/json`, aUser.encryptUser(aesKey).toJson.compactPrint))}

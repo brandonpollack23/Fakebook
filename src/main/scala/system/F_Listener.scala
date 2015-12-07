@@ -64,7 +64,7 @@ trait F_ListenerService extends HttpService {
             path("newuser") {
                 put {
                   detach() {
-                    extractRequestContext { request => complete(genericPut(CreateUser(request.request))) }
+                    extractRequestContext { request => complete(genericPut(CreateUser(request.request), authRequired = false)) }
                   }
                 }
             } ~
@@ -298,7 +298,7 @@ trait F_ListenerService extends HttpService {
    * @param message constructed message to send to the backbone for handling
    * @return
    */
-  def genericPut(message: PutInfo): HttpResponse = {
+  def genericPut(message: PutInfo, authRequired: Boolean = true): HttpResponse = {
     def put = () => {
       try {
         Await.ready((backbone ? message).mapTo[String], timeout).value.get match {
@@ -316,7 +316,7 @@ trait F_ListenerService extends HttpService {
       }
     }
 
-    if(message.getClass != classOf[CreateUser]) { //unless creating a use for the first time we need to authenticate
+    if(authRequired) { //unless creating a use for the first time we need to authenticate
       verifyCookie(message.httpRequest, put)
     }
     else put.apply()

@@ -1,20 +1,17 @@
 package system.workers
 
 import java.security.MessageDigest
-import java.util.{Date, MissingFormatArgumentException}
-import javax.crypto.KeyGenerator
-import javax.crypto.spec.SecretKeySpec
+import java.util.Date
 
 import akka.actor
-import akka.actor.FSM.Failure
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
 import graphnodes.F_User._
-import graphnodes.{F_UserE, F_User, F_UserES}
+import graphnodes.{F_User, F_UserE, F_UserES}
 import spray.http.HttpHeaders.Cookie
-import spray.http._
 import spray.http.StatusCodes._
+import spray.http._
 import spray.json._
 import system.F_BackBone._
 import util.Crypto._
@@ -259,7 +256,7 @@ class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
         val solutionHash = BigInt(md.digest(solutionNumber.toByteArray))
         users.put(id, us.copy(authenticationAnswerHash = solutionHash))
         val problemNumber = BigInt(solutionNumber.toByteArray.encryptRSA(us.userE.identityKey))
-        val cookie = Cookie(HttpCookie(authenticationCookieName, problemNumber.toString(16), secure = true))
+        val cookie = Cookie(HttpCookie(authenticationCookieName, problemNumber.toString(16)/*, secure = true*/)) //when SSL is enabled secure should be true
         sender ! HttpResponse(OK, headers = List(cookie)) //respond with cookie TODO on user side this cookie needs to be decrypted with private identity key and remade using decryption
       case None =>
         sender ! noSuchUserFailure(id)

@@ -1,46 +1,28 @@
 package clientSim
 
 
-import javax.net.ssl.{TrustManager, SSLContext}
+import javax.net.ssl.SSLContext
 
 import akka.actor.{ActorRef, ActorSystem, Props, _}
 import akka.io.IO
 import spray.can.Http
 import system._
-//import MatchClasses._
 import clientSim.CaseClasses._
-import spray.io.{ServerSSLEngineProvider, ClientSSLEngineProvider}
-import util.DummyTrustManager
 
 
 object TestMain {
 
 
-  def main(args : Array[String]): Unit =
-  {
-    implicit val myClientEngineProvider = ClientSSLEngineProvider { engine =>
-      engine.setEnabledCipherSuites(Array("TLS_RSA_WITH_AES_256_CBC_SHA"))
-      engine.setEnabledProtocols(Array("SSLv3", "TLSv1"))
-      engine
-    }
-
-    implicit val myServerEngineProvider = ServerSSLEngineProvider { engine =>
-      engine.setEnabledCipherSuites(Array("TLS_RSA_WITH_AES_256_CBC_SHA"))
-      engine.setEnabledProtocols(Array("SSLv3", "TLSv1"))
-      engine
-    }
-
-    implicit val sslContext = SSLContext.getInstance("TLS")
-    sslContext.init(null, Array.fill[TrustManager](1)(new DummyTrustManager) , new java.security.SecureRandom())
+  def main(args : Array[String]): Unit = {
 
     implicit val system = ActorSystem("TestActorSystem")
 
     val handler:ActorRef = system.actorOf(F_Server.props,"handler")
     IO(Http) ! Http.Bind(handler, "localhost", port = 8080)
 
-
     var userRef: ActorRef = system.actorOf(Props(new F_UserClient()), "UserClientActor")
     userRef ! Begin
+    userRef !
 
 
     /*
