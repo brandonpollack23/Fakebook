@@ -65,8 +65,11 @@ class F_PictureHandler(backbone: ActorRef) extends Actor with ActorLogging {
 
     case CreateDefaultAlbum(ownerID) =>
       val id = getUniqueRandomBigInt(albums)
-      albums.put(id, F_AlbumE("Default Album".getBytes, "default album generated for you by Fakebook".getBytes, new Date, isDefault =  true, ownerID, id, List[BigInt]()))
-      sender ! id
+      val defaultPictureID = getUniqueRandomBigInt(pictures)
+      val album = F_AlbumE("Default Album".getBytes, "default album generated for you by Fakebook".getBytes, new Date, isDefault =  true, ownerID, id, List[BigInt](defaultPictureID))
+      albums.put(id, album)
+      pictures.put(defaultPictureID, F_PictureE("default".getBytes, "default".getBytes, id, new Date, defaultPictureDataID, defaultPictureID, ownerID))
+      sender ! album
 
     case UpdateImageData(id, request) =>
       updatePicture(id, request)
@@ -123,7 +126,7 @@ class F_PictureHandler(backbone: ActorRef) extends Actor with ActorLogging {
     }
   }
 
-  def updateAlbum(id: BigInt, request: HttpRequest) = { //TODO continue from here
+  def updateAlbum(id: BigInt, request: HttpRequest) = {
     def updateCurrentAlbum(album: F_AlbumE, fields: Map[String, JsValue]): F_AlbumE = {
       if(fields.isEmpty) album
       else {
@@ -245,7 +248,6 @@ class F_PictureHandler(backbone: ActorRef) extends Actor with ActorLogging {
 object F_PictureHandler {
   def props(backbone: ActorRef) = Props(new F_PictureHandler(backbone))
 
-  val defaultPictureID = BigInt(0)
   val defaultPictureDataID = BigInt(0)
 
   /**

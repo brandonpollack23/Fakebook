@@ -88,8 +88,8 @@ class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
   def createUserProfile(userID: BigInt) = {
     try {
       val profileID = getUniqueRandomBigInt(profiles)
-      val defaultAlbumID = Await.result((backbone ? CreateDefaultAlbum(userID)).mapTo[BigInt], 5 seconds)
-      val defaultProfile = F_UserProfileE(List[BigInt](), new Date, defaultAlbumID, List[BigInt](), defaultPictureID, Array[Byte](), userID, profileID)
+      val defaultAlbum = Await.result((backbone ? CreateDefaultAlbum(userID)).mapTo[F_AlbumE], 5 seconds)
+      val defaultProfile = F_UserProfileE(List[BigInt](), new Date, defaultAlbum.id, List[BigInt](), defaultAlbum.images(0), Array[Byte](), userID, profileID)
       profiles.put(profileID, defaultProfile)
       profileID
     } catch {
@@ -212,8 +212,8 @@ class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
         val currentParameter = fields.head
         currentParameter._1 match {
           case F_UserProfile.`profilePictureIDField` =>
-            //TODO check if the album ID exists
-            updateProfile(profile.copy(profilePictureID = BigInt(currentParameter._2.toString(), 16)), fields.tail)
+            //TODO check if the picture ID exists
+            updateProfile(profile.copy(profilePictureID = currentParameter._2.convertTo[BigInt]), fields.tail)
           case F_UserProfile.`descriptionField` => updateProfile(profile.copy(description = currentParameter._2.convertTo[Array[Byte]]), fields.tail)
           case _ =>
             updateProfile(profile, fields.tail)
@@ -223,7 +223,7 @@ class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
 
     try{
       val profile = profiles.getOrElse(id, throw noSuchProfileException(List(id)))
-      val updateFields = request.entity.asString.parseJson.asJsObject.fields
+      val updateFields = request.entity.data.asString.parseJson.asJsObject.fields
 
       val updatedProfile = updateProfile(profile, updateFields)
 

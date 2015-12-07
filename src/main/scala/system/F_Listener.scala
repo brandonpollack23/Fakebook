@@ -6,6 +6,7 @@ import akka.actor._
 import akka.event.LoggingAdapter
 import akka.pattern.ask
 import akka.util.Timeout
+import graphnodes.F_User
 import spray.http.StatusCodes._
 import spray.http.{HttpRequest, HttpResponse}
 import spray.routing._
@@ -418,10 +419,10 @@ trait F_ListenerService extends HttpService {
   }
 
   def verifyCookie(httpRequest: HttpRequest, callback: () => HttpResponse): HttpResponse = {
-    (httpRequest.cookies.find(header => header.name == authenticationCookieName), httpRequest.uri.query.get("owner"))  match {
+    (httpRequest.cookies.find(header => header.name == authenticationCookieName), httpRequest.uri.query.get(F_User.ownerQuery))  match {
       case (Some(cookie), Some(owner)) =>
-        Await.result(backbone ? VerifyAuthenticationCookie(BigInt(owner, 16), cookie), timeout) match {
-          case Success(_) =>
+        Await.ready(backbone ? VerifyAuthenticationCookie(BigInt(owner, 16), cookie), timeout).value.get match {
+          case Success(true) =>
             callback.apply()
           case Failure(ex) =>
             HttpResponse(Unauthorized, "you do not have access because " + ex.getMessage)

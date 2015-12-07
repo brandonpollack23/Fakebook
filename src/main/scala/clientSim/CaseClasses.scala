@@ -1,74 +1,76 @@
 package clientSim
 
 
-object CaseClasses {
+object CaseObjects {
 
 
-  case class Begin()
+  case object Begin
 
-  case class Simulate()
+  case object GetAuthCode
 
-
-  case class UserCreated()
-
-  case class UserDataRetrieved()
-
-  case class UserUpdated()
-
-  case class UserDeleted()
+  case object Simulate
 
 
+  case object UserCreated
 
-  case class ProfileCreated()
+  case object UserDataRetrieved
 
-  case class ProfileRetrieved()
+  case object UserUpdated
 
-  case class ProfileUpdated()
-
-  case class ProfileDeleted()
+  case object UserDeleted
 
 
 
-  case class PageCreated()
+  case object ProfileCreated
 
-  case class PageRetrieved()
+  case object ProfileRetrieved
 
-  case class PageUpdated()
+  case object ProfileUpdated
 
-  case class PageDeleted()
-
-
-
-  case class PostCreated()
-
-  case class PostRetrieved()
-
-  case class PostUpdated()
-
-  case class PostDeleted()
-
-
-  case class PictureUploaded()
-
-  case class PictureRetrieved()
-
-  case class PictureUpdated()
-
-  case class PictureDeleted()
+  case object ProfileDeleted
 
 
 
-  case class AlbumCreated()
+  case object PageCreated
 
-  case class AlbumRetrieved()
+  case object PageRetrieved
 
-  case class AlbumUpdated()
+  case object PageUpdated
 
-  case class AlbumDeleted()
+  case object PageDeleted
 
 
-  case class FriendRequestSent()
 
-  case class FriendRemoved()
+  case object PostCreated
+
+  case object PostRetrieved
+
+  case object PostUpdated
+
+  case object PostDeleted
+
+
+  case object PictureUploaded
+
+  case object PictureRetrieved
+
+  case object PictureUpdated
+
+  case object PictureDeleted
+
+
+
+  case object AlbumCreated
+
+  case object AlbumRetrieved
+
+  case object AlbumUpdated
+
+  case object AlbumDeleted
+
+
+  case object FriendRequestSent
+
+  case object FriendRemoved
 
 }

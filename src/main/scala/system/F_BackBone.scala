@@ -178,8 +178,6 @@ object F_BackBone {
 
   implicit val randomIDGenerator = new SecureRandom()
 
-  val defaultPictureID = F_PictureHandler.defaultPictureID
-
   /**
    * Generatess a unique secure random ID for the map
    * @param map  map to check secure random ID against for uniquness

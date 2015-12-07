@@ -37,7 +37,7 @@ case class F_UserE(firstName: Array[Byte], lastName: Array[Byte], biography: Arr
 
 case class F_UserES(userE: F_UserE, //server side F_User which contains some extra authentication info
                    authenticationAnswerHash: BigInt, //the answer to the authentication which was encrypted using the identity key and should come back decrypted to equal this
-                   sessionExpiration: Date = anHourFromNow) //the latest that the sessionAEScookie will work before authentication failed gets sent back, default is one hour later
+                   sessionExpiration: Date = new Date) //the latest that the sessionAEScookie will work before authentication failed gets sent back, default is one hour later
 
 object F_User {
   val friendRequestString = "requestfriend" //QUERY used to say who the request is for: BigInt String
@@ -53,6 +53,9 @@ object F_User {
   val bioField = "biography"
   val ageField = "age"
   val dobField = "dateOfBirth"
+
+  //query to specify who the owner is when authenticating
+  val ownerQuery = "owner"
 
   def anHourFromNow = {
     val cal = Calendar.getInstance; // creates calendar

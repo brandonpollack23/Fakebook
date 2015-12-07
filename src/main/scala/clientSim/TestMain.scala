@@ -1,13 +1,10 @@
 package clientSim
 
-
-import javax.net.ssl.SSLContext
-
 import akka.actor.{ActorRef, ActorSystem, Props, _}
 import akka.io.IO
+import clientSim.CaseObjects.{Begin, GetAuthCode}
 import spray.can.Http
 import system._
-import clientSim.CaseClasses._
 
 
 object TestMain {
@@ -20,9 +17,8 @@ object TestMain {
     val handler:ActorRef = system.actorOf(F_Server.props,"handler")
     IO(Http) ! Http.Bind(handler, "localhost", port = 8080)
 
-    var userRef: ActorRef = system.actorOf(Props(new F_UserClient()), "UserClientActor")
+    var userRef: ActorRef = system.actorOf(Props(new F_UserClient(1)), "UserClientActor")
     userRef ! Begin
-    userRef !
 
 
     /*

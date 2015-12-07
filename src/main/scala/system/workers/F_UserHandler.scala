@@ -254,9 +254,9 @@ class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
     users.get(id) match {
       case Some(us) =>
         val solutionHash = BigInt(md.digest(solutionNumber.toByteArray))
-        users.put(id, us.copy(authenticationAnswerHash = solutionHash))
-        val problemNumber = BigInt(solutionNumber.toByteArray.encryptRSA(us.userE.identityKey))
-        val cookie = Cookie(HttpCookie(authenticationCookieName, problemNumber.toString(16)/*, secure = true*/)) //when SSL is enabled secure should be true
+        users.put(id, us.copy(sessionExpiration = F_User.anHourFromNow, authenticationAnswerHash = solutionHash))
+        val problemNumber = BigInt(solutionNumber.toByteArray.encryptRSA(us.userE.identityKey)).toString(16)
+        val cookie = Cookie(HttpCookie(authenticationCookieName, problemNumber/*, secure = true*/)) //when SSL is enabled secure should be true
         sender ! HttpResponse(OK, headers = List(cookie)) //respond with cookie TODO on user side this cookie needs to be decrypted with private identity key and remade using decryption
       case None =>
         sender ! noSuchUserFailure(id)
@@ -267,9 +267,10 @@ class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
     try {
       (users.get(id), BigInt(cookie.content, 16).toByteArray) match {
         case (Some(user), aesKeyBytes) =>
-          val solutionHash = md.digest(BigInt(cookie.content, 16).toByteArray)
+          val solutionHash = BigInt(md.digest(aesKeyBytes))
           if (user.sessionExpiration after new Date) {
-            if (solutionHash equals user.authenticationAnswerHash) sender ! actor.Status.Success else sender ! actor.Status.Failure(new Exception("cookie key does not match with session"))
+            if (solutionHash == user.authenticationAnswerHash) sender ! true //just send any kind of success
+            else sender ! actor.Status.Failure(new Exception("cookie key does not match with session"))
           } else {
             sender ! actor.Status.Failure(new Exception("your session has expired, please reverify"))
           }

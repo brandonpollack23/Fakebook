@@ -1,36 +1,29 @@
 package clientSim
 
 import java.security._
-import javax.crypto.KeyGenerator
-import javax.net.ssl.{SSLContext, X509TrustManager, TrustManager}
-import javax.security.cert.X509Certificate
-import util.MyJsonProtocol._
-import util.{DummyTrustManager, Crypto}
-import akka.actor.Actor
-import spray.client.pipelining._
-import spray.client.pipelining.sendReceive
-import scala.util.{Success, Failure}
-import java.text.SimpleDateFormat._
-import spray.httpx.SprayJsonSupport._
-import spray.json.DefaultJsonProtocol
-import spray.httpx.unmarshalling._
-import spray.httpx.marshalling._
+import java.util.Date
+import javax.crypto.{KeyGenerator, SecretKey}
+
+import akka.actor.{Actor, _}
+import clientSim.CaseObjects._
+import graphnodes._
+import spray.client.pipelining.{sendReceive, _}
+import spray.http.HttpHeaders.Cookie
 import spray.http._
 import spray.json._
-import java.util.Date
-import akka.actor._
-import graphnodes._
-import CaseClasses._
-import scala.util.Random
-import scala.concurrent.duration._
+import util.MyJsonProtocol._
+
+import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
-import javax.crypto.SecretKey
-import spray.io.{SSLContextProvider, ClientSSLEngineProvider}
+import scala.util.{Failure, Success}
+
+import graphnodes.F_User
+
+import util.Crypto._
 
 
 
-
-class F_UserClient extends Actor with ActorLogging {
+class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
 
 /*
  * Code block 1
@@ -51,14 +44,14 @@ class F_UserClient extends Actor with ActorLogging {
   //AES Encryption
   val kGen: KeyGenerator = KeyGenerator.getInstance("AES")
   kGen.init(128)
-  val aesKey: SecretKey = kGen.generateKey()
+  val aesKey: SecretKey = kGen.generateKey
 
   //RSA Encryption
   val kpg: KeyPairGenerator = KeyPairGenerator.getInstance("RSA")
   kpg.initialize(2048)
-  val kp: KeyPair = kpg.genKeyPair()
-  val publicKey  = kp.getPublic()
-  val privateKey = kp.getPrivate()
+  val kp: KeyPair = kpg.genKeyPair
+  val publicKey  = kp.getPublic
+  val privateKey = kp.getPrivate
 
 
   //default profiles for Put requests
@@ -68,7 +61,6 @@ class F_UserClient extends Actor with ActorLogging {
   var post_ME   = F_Post("Some News", 0, "profile", 0, new Date(2015-1900,1,1), 0)
   var album_ME :F_Album   = F_Album("My Album", "Vacations", new Date(2015-1900,1,1), false, 0, 0, List[BigInt]())
   var pic_ME :F_Picture    = F_Picture("My Pic", "Holidays", 0, new Date(2015-1900,1,1), 0, 0, 0)
-
 
   var userId    : BigInt = 0
   var profileId : BigInt = 0
@@ -81,10 +73,12 @@ class F_UserClient extends Actor with ActorLogging {
   var myAlbums = List[BigInt]()
   var myPages  = List[BigInt]()
 
+  var myAuthCookie: HttpHeader = Cookie(HttpCookie(F_User.authenticationCookieName, content = "0"))
+
   //TODO check about the id required for get and delete, and cookie authentication code to be implemented
   //TODO friend request code
 
-  def initialize() ={
+  def initialize ={
     //send create user request, get user profile, set values in all the objects made for further requests
 
     //create user
@@ -97,18 +91,26 @@ class F_UserClient extends Actor with ActorLogging {
 
   }
 
-  def authRequest() = {
+  def authRequest = {
 
-    val uri = Uri("http://localhost:8080/users/auth/"+userId.toString(16))
+    val uri = Uri("http://localhost:8080/users/auth/"+user_ME.userID.toString(16))
 
-    val pipeline = sendReceive ~> unmarshal[String]
+    val pipeline = sendReceive
     val responseFuture = pipeline {Post(uri)}
 
     responseFuture onComplete {
 
-      case Success(jsonRef) =>
-       //TODO add cookie code here
+      case Success(authenticationResponse) =>
+        if(authenticationResponse.headers.isEmpty) throw new Exception("No cookie in auth reply!")
+        val cookies = authenticationResponse.headers.collect {
+          case Cookie(ck) => ck.find(_.name == F_User.authenticationCookieName)
+        }
+        val authenticationCookie = cookies.head.get
 
+        val encryptedCode = BigInt(authenticationCookie.content, 16).toByteArray
+        val decryptedCodeString = BigInt(encryptedCode.decryptRSA(privateKey)).toString(16)
+        myAuthCookie = Cookie(HttpCookie(F_User.authenticationCookieName, content = decryptedCodeString))
+        getRequest(profileType)
 
       case Failure(error) =>
         log.error(error, "Failed to fetch authorization cookie " + error.getMessage)
@@ -133,10 +135,8 @@ class F_UserClient extends Actor with ActorLogging {
 
         case Success(jsonRef) =>
           user_ME = jsonRef.parseJson.convertTo[F_UserE].decryptUserE(aesKey,privateKey)
-          userId = user_ME.userID
-          profileId = user_ME.profileID
           log.info("==============>>>>>>>> user profile created")
-          self ! UserCreated()
+          self ! GetAuthCode
 
         case Failure(error) =>
           log.error(error, "Failed to run Create User because of " + error.getMessage)
@@ -155,12 +155,12 @@ class F_UserClient extends Actor with ActorLogging {
         case Success(jsonRef) =>
           log.info("==============>>>>>>>> Page creation successful!!")
           myPages ::= jsonRef.parseJson.convertTo[F_Page].ID
-          //self ! Simulate()//#
-          self ! PageCreated()
+          //self ! Simulate//#
+          self ! PageCreated
 
         case Failure(error) =>
           log.error(error, "Couldn't get Page Created !!")
-        //self ! Simulate()//#
+        //self ! Simulate//#
       }
 
 
@@ -182,12 +182,12 @@ class F_UserClient extends Actor with ActorLogging {
           else{
             myPagePosts ::= temp.postID
           }
-          //self ! Simulate()//#
-          self ! PostCreated()
+          //self ! Simulate//#
+          self ! PostCreated
 
         case Failure(error) =>
           log.error(error, "Couldn't run createPost  !!")
-        //self ! Simulate()//#
+        //self ! Simulate//#
       }
 
 
@@ -203,12 +203,12 @@ class F_UserClient extends Actor with ActorLogging {
         case Success(jsonRef) =>
           log.info("============>>>>>>>>>>> Album successfully Created !!")
           myAlbums ::= jsonRef.parseJson.convertTo[F_AlbumE].decryptAlbumE(aesKey).id
-          //self ! Simulate()//#
-          self ! AlbumCreated()
+          //self ! Simulate//#
+          self ! AlbumCreated
 
         case Failure(error) =>
           log.error(error, "Couldn't run createAlbum  !!")
-        //self ! Simulate()//#
+        //self ! Simulate//#
       }
 
 
@@ -225,12 +225,12 @@ class F_UserClient extends Actor with ActorLogging {
         case Success(jsonRef) =>
           log.info("uploadPicture successful!!")
           myPics ::= jsonRef.parseJson.convertTo[F_PictureE].decryptPictureE(aesKey).pictureID
-          //self ! Simulate()//#
-          self ! PictureUploaded()
+          //self ! Simulate//#
+          self ! PictureUploaded
 
         case Failure(error) =>
           log.error(error, "Couldn't run uploadPicture !!")
-        //self ! Simulate()//#
+        //self ! Simulate//#
       }
 
   }
@@ -248,18 +248,18 @@ class F_UserClient extends Actor with ActorLogging {
       responseFuture onComplete {
         case Success(jsonRef) =>
           log.info("==============>>>>>>>> User Data successfully Retrieved!!")
-          //self ! Simulate()//#
-          self ! UserDataRetrieved()
+          //self ! Simulate//#
+          self ! UserDataRetrieved
 
         case Failure(error) =>
           log.error(error, "Couldn't Retrieve User Data !!")
-        //self ! Simulate()//#
+        //self ! Simulate//#
       }
 
 
     case "profile" =>
 
-      val uri = Uri("http://localhost:8080/profile/" + profileId.toString(16))
+      val uri = Uri("http://localhost:8080/profile/" + user_ME.profileID.toString(16))
 
       val pipeline = sendReceive ~> unmarshal[String]
       val responseFuture = pipeline {Get(uri)}
@@ -269,11 +269,11 @@ class F_UserClient extends Actor with ActorLogging {
         case Success(jsonRef) =>
           profile_ME = jsonRef.parseJson.convertTo[F_UserProfileE].decryptUserProfileE(aesKey)
           log.info("==============>>>>>>>> user Profile Retrieved successfully")
-          self ! ProfileRetrieved()
+          self ! ProfileRetrieved
 
         case Failure(error) =>
           log.error(error, "Couldn't Retrieve User Profile !!")
-        //self ! Simulate()//#
+        //self ! Simulate//#
       }
 
 
@@ -288,12 +288,12 @@ class F_UserClient extends Actor with ActorLogging {
 
         case Success(jsonRef) =>
           log.info("Page Data successfully Retrieved !!")
-          //self ! Simulate()//#
-          self ! PageRetrieved()
+          //self ! Simulate//#
+          self ! PageRetrieved
 
         case Failure(error) =>
           log.error(error, "Couldn't Retrieve Page Data !!")
-        //self ! Simulate()//#
+        //self ! Simulate//#
       }
 
 
@@ -308,12 +308,12 @@ class F_UserClient extends Actor with ActorLogging {
 
         case Success(jsonRef) =>
           log.info("==============>>>>>>>> Post successfully Retrieved !!")
-          //self ! Simulate()//#
-          self ! PostRetrieved()
+          //self ! Simulate//#
+          self ! PostRetrieved
 
         case Failure(error) =>
           log.error(error, "Couldn't Retrieve Post !!")
-        //self ! Simulate()//#
+        //self ! Simulate//#
       }
 
 
@@ -328,12 +328,12 @@ class F_UserClient extends Actor with ActorLogging {
 
         case Success(jsonRef) =>
           log.info("Album data successfully Retrieved !!")
-          //self ! Simulate()//#
-          self ! AlbumRetrieved()
+          //self ! Simulate//#
+          self ! AlbumRetrieved
 
         case Failure(error) =>
           log.error(error, "Couldn't Retrieve Album Data !!")
-        //self ! Simulate()//#
+        //self ! Simulate//#
       }
 
 
@@ -348,12 +348,12 @@ class F_UserClient extends Actor with ActorLogging {
 
         case Success(jsonRef) =>
           log.info("getPictureData successful!!")
-          //self ! Simulate()//#
-          self ! PictureRetrieved()
+          //self ! Simulate//#
+          self ! PictureRetrieved
 
         case Failure(error) =>
           log.error(error, "Couldn't Retrieve Picture Data !!")
-        //self ! Simulate()//#
+        //self ! Simulate//#
       }
 
 
@@ -361,7 +361,7 @@ class F_UserClient extends Actor with ActorLogging {
   }
 
 
-  def postRequest(reqType:String, aUser:F_User, aProfile:F_UserProfile=null, aPage:F_Page=null, aPost:F_Post=null, aAlbum:F_Album=null, aPic:F_Picture=null) = reqType match {
+  def postRequest(reqType:String, aUser:F_User=null, aProfile:F_UserProfile=null, aPage:F_Page=null, aPost:F_Post=null, aAlbum:F_Album=null, aPic:F_Picture=null) = reqType match {
 
     case "user" =>
 
@@ -375,33 +375,33 @@ class F_UserClient extends Actor with ActorLogging {
         case Success(jsonRef) =>
           log.info("updateUserData successful!!")
           user_ME = jsonRef.parseJson.convertTo[F_UserE].decryptUserE(aesKey, privateKey)
-          //self ! Simulate()//#
-          self ! UserUpdated()
+          //self ! Simulate//#
+          self ! UserUpdated
 
         case Failure(error) =>
           log.error(error, "Couldn't run updateUserData  !!")
-        //self ! Simulate()//#
+        //self ! Simulate//#
       }
 
 
     case "profile" =>
 
-      val uri = Uri("http://localhost:8080/profile/")
+      val uri = Uri("http://localhost:8080/profile/" + user_ME.profileID.toString(16)) withQuery (F_User.ownerQuery -> user_ME.userID.toString(16))
 
       val pipeline = sendReceive ~> unmarshal[String]
-      val responseFuture = pipeline {Post(uri, HttpEntity(MediaTypes.`application/json`, aProfile.encryptUserProfile(aesKey).toJson.compactPrint))}
+      val responseFuture = pipeline {Post(uri, HttpEntity(MediaTypes.`application/json`, aProfile.encryptUserProfile(aesKey).toJson.compactPrint)) withHeaders myAuthCookie}
 
       responseFuture onComplete {
 
         case Success(jsonRef) =>
           log.info("updateUserData successful!!")
           profile_ME = jsonRef.parseJson.convertTo[F_UserProfileE].decryptUserProfileE(aesKey)
-          //self ! Simulate()//#
-          self ! ProfileUpdated()
+          //self ! Simulate//#
+          self ! ProfileUpdated
 
         case Failure(error) =>
           log.error(error, "Couldn't run updateUserProfile !!")
-        //self ! Simulate()//#
+        //self ! Simulate//#
       }
 
 
@@ -416,12 +416,12 @@ class F_UserClient extends Actor with ActorLogging {
 
         case Success(jsonRef) =>
           log.info("updatePageData successful !!")
-          //self ! Simulate()//#
-          self ! PageUpdated()
+          //self ! Simulate//#
+          self ! PageUpdated
 
         case Failure(error) =>
           log.error(error, "Couldn't run updatePageData !!")
-        //self ! Simulate()//#
+        //self ! Simulate//#
       }
 
 
@@ -436,12 +436,12 @@ class F_UserClient extends Actor with ActorLogging {
 
         case Success(jsonRef) =>
           log.info("updatePost successful!!")
-          //self ! Simulate()//#
-          self ! PostUpdated()
+          //self ! Simulate//#
+          self ! PostUpdated
 
         case Failure(error) =>
           log.error(error, "Couldn't run updatePost  !!")
-        //self ! Simulate()//#
+        //self ! Simulate//#
       }
 
 
@@ -456,12 +456,12 @@ class F_UserClient extends Actor with ActorLogging {
 
         case Success(jsonRef) =>
           log.info("updateAlbumData successful!!")
-          //self ! Simulate()//#
-          self ! AlbumUpdated()
+          //self ! Simulate//#
+          self ! AlbumUpdated
 
         case Failure(error) =>
           log.error(error, "Couldn't run updateAlbumData :(")
-        //self ! Simulate()//#
+        //self ! Simulate//#
       }
 
 
@@ -476,12 +476,12 @@ class F_UserClient extends Actor with ActorLogging {
 
         case Success(jsonRef) =>
           log.info("updatePictureData successful!!")
-          //self ! Simulate()//#
-          self ! PictureUpdated()
+          //self ! Simulate//#
+          self ! PictureUpdated
 
         case Failure(error) =>
           log.error(error, "Couldn't run updatePictureData :(")
-        //self ! Simulate()//#
+        //self ! Simulate//#
       }
 
 
@@ -500,7 +500,7 @@ class F_UserClient extends Actor with ActorLogging {
 
         case Success(jsonRef) =>
           log.info("User deleted successfully !!")
-          self ! UserDeleted()
+          self ! UserDeleted
 
         case Failure(error) =>
           log.error(error, "Couldn't delete User !!")
@@ -519,12 +519,12 @@ class F_UserClient extends Actor with ActorLogging {
         case Success(jsonRef) =>
           log.info(" Delete Page successful !!")
           myPages = myPages.filter(_!=pageId)
-          //self ! Simulate()//#
-          self ! PageDeleted()
+          //self ! Simulate//#
+          self ! PageDeleted
 
         case Failure(error) =>
           log.error(error, "Couldn't run Delete Page !!")
-        //self ! Simulate()//#
+        //self ! Simulate//#
       }
 
     case "post" =>
@@ -541,12 +541,12 @@ class F_UserClient extends Actor with ActorLogging {
           myPosts = myPosts.filter(_!=postId)
           myPagePosts = myPagePosts.filter(_!=postId)
           myProfPosts = myProfPosts.filter(_!=postId)
-          //self ! Simulate()//#
-          self ! PostDeleted()
+          //self ! Simulate//#
+          self ! PostDeleted
 
         case Failure(error) =>
           log.error(error, "Couldn't run deletePost :(")
-          self ! Simulate()//#
+          self ! Simulate//#
       }
 
     case "album" =>
@@ -561,12 +561,12 @@ class F_UserClient extends Actor with ActorLogging {
         case Success(jsonRef) =>
           log.info("deleteAlbum successful!!")
           myAlbums = myAlbums.filter(_!=albumId)
-          //self ! Simulate()//#
-          self ! AlbumDeleted()
+          //self ! Simulate//#
+          self ! AlbumDeleted
 
         case Failure(error) =>
           log.error(error, "Couldn't run deleteAlbum :(")
-        //self ! Simulate()//#
+        //self ! Simulate//#
       }
 
     case "picture" =>
@@ -581,12 +581,12 @@ class F_UserClient extends Actor with ActorLogging {
         case Success(jsonRef) =>
           log.info("deletePicture successful!!")
           myPics = myPics.filter(_!=picId)
-          //self ! Simulate()//#
-          self ! PictureDeleted()
+          //self ! Simulate//#
+          self ! PictureDeleted
 
         case Failure(error) =>
           log.error(error, "Couldn't run deletePicture :(")
-        //self ! Simulate()//#
+        //self ! Simulate//#
       }
 
 
@@ -598,9 +598,14 @@ class F_UserClient extends Actor with ActorLogging {
     case Begin =>
       putRequest(userType,user_ME)
 
-    case UserCreated() =>
+    case UserCreated =>
       log.info("============>>>>>>>>>>>>>>>User creation successful ")
 
+    case GetAuthCode =>
+      authRequest
+
+    case ProfileRetrieved => //by default send the server your desired profile information
+      postRequest(profileType, aProfile= profile_ME.copy(description = "description for client " + clientNumber))
     //Test code block ends
 
     //original Simulation block begin here
@@ -608,16 +613,16 @@ class F_UserClient extends Actor with ActorLogging {
         case Begin =>
           putRequest(userType, user_ME)
 
-        case UserCreated() =>
+        case UserCreated =>
           getRequest(profileType)
 
-        case ProfileRetrieved() =>
+        case ProfileRetrieved =>
           putRequest(pageType, null, page_ME)
 
-        case PageCreated() =>
-          self ! Simulate()
+        case PageCreated =>
+          self ! Simulate
 
-        case Simulate() =>
+        case Simulate =>
 
           val x = Random.nextInt(100)
 
@@ -726,7 +731,7 @@ class F_UserClient extends Actor with ActorLogging {
           }
           if(x>=90)//do something about friendList - 10%
           {
-            self ! Simulate()
+            self ! Simulate
             //postRequest(friendRequest)
             //postRequest(removeFriend)
           }
