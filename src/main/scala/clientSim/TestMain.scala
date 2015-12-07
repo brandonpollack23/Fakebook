@@ -1,19 +1,16 @@
 package clientSim
 
 
-import java.security.{KeyPair, KeyPairGenerator}
-import javax.crypto.{KeyGenerator, SecretKey}
-import akka.actor.{Props, ActorRef, ActorSystem}
-import akka.actor.{Props, ActorRef, Actor, ActorLogging}
-import graphnodes.F_User
-import system._
-import spray.can.Http
+import javax.net.ssl.{TrustManager, SSLContext}
+
+import akka.actor.{ActorRef, ActorSystem, Props, _}
 import akka.io.IO
-import akka.actor._
-import akka.actor.ActorSystem
+import spray.can.Http
+import system._
 //import MatchClasses._
-import CaseClasses._
-import spray.io.ClientSSLEngineProvider
+import clientSim.CaseClasses._
+import spray.io.{ServerSSLEngineProvider, ClientSSLEngineProvider}
+import util.DummyTrustManager
 
 
 object TestMain {
@@ -21,11 +18,20 @@ object TestMain {
 
   def main(args : Array[String]): Unit =
   {
-    implicit val myEngineProvider = ClientSSLEngineProvider { engine =>
+    implicit val myClientEngineProvider = ClientSSLEngineProvider { engine =>
       engine.setEnabledCipherSuites(Array("TLS_RSA_WITH_AES_256_CBC_SHA"))
       engine.setEnabledProtocols(Array("SSLv3", "TLSv1"))
       engine
     }
+
+    implicit val myServerEngineProvider = ServerSSLEngineProvider { engine =>
+      engine.setEnabledCipherSuites(Array("TLS_RSA_WITH_AES_256_CBC_SHA"))
+      engine.setEnabledProtocols(Array("SSLv3", "TLSv1"))
+      engine
+    }
+
+    implicit val sslContext = SSLContext.getInstance("TLS")
+    sslContext.init(null, Array.fill[TrustManager](1)(new DummyTrustManager) , new java.security.SecureRandom())
 
     implicit val system = ActorSystem("TestActorSystem")
 
