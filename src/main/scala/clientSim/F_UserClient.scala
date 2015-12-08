@@ -143,7 +143,7 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
           log.error(error, "Failed to run Create User because of " + error.getMessage)
       }
 
-
+    //#Works
     case "page" =>
 
       val uri = Uri("http://localhost:8080/page/newpage") withQuery(F_User.ownerQuery -> user_ME.userID.toString(16))
@@ -194,10 +194,10 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
         //self ! Simulate//#
       }
 
-
+    //#Works
     case "album" =>
 
-      val uri = Uri("http://localhost:8080/album/createalbum") withQuery(F_User.ownerQuery -> user_ME.profileID.toString(16))
+      val uri = Uri("http://localhost:8080/album/createalbum") withQuery(F_User.ownerQuery -> user_ME.userID.toString(16))
 
       val pipeline = sendReceive ~> unmarshal[String]
       val responseFuture = pipeline {Put(uri, HttpEntity(MediaTypes.`application/json`, aAlbum.encryptAlbum(aesKey).toJson.compactPrint)) withHeaders myAuthCookie}
@@ -215,7 +215,7 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
         //self ! Simulate//#
       }
 
-
+    //#Works
     case "picture" =>
 
       val uri = Uri("http://localhost:8080/data/uploadimage") withQuery(F_User.ownerQuery -> user_ME.userID.toString(16))
@@ -321,7 +321,7 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
         //self ! Simulate//#
       }
 
-
+    //#Works
     case "album" =>
 
       val uri = Uri("http://localhost:8080/album/"+albumId.toString(16))
@@ -413,7 +413,7 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
 
     case "page" =>
 
-      val uri = Uri("http://localhost:8080/page/"+aPage.ID.toString(16))
+      val uri = Uri("http://localhost:8080/page/"+aPage.ID.toString(16)) withQuery (F_User.ownerQuery -> user_ME.userID.toString(16))
 
       val pipeline = sendReceive ~> unmarshal[String]
       val responseFuture = pipeline {Post(uri, HttpEntity(MediaTypes.`application/json`, aPage.toJson.compactPrint)) withHeaders myAuthCookie}
@@ -433,7 +433,7 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
 
     case "post" =>
 
-      val uri = Uri("http://localhost:8080/post/")
+      val uri = Uri("http://localhost:8080/post/" + aPost.postID.toString(16)) withQuery (F_User.ownerQuery -> user_ME.userID.toString(16))
 
       val pipeline = sendReceive ~> unmarshal[String]
       val responseFuture = pipeline {Post(uri, HttpEntity(MediaTypes.`application/json`, aPost.encryptPost(aesKey).toJson.compactPrint)) withHeaders myAuthCookie}
@@ -450,10 +450,10 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
         //self ! Simulate//#
       }
 
-
+    //#Works
     case "album" =>
 
-      val uri = Uri("http://localhost:8080/album/")
+      val uri = Uri("http://localhost:8080/album/"+ aAlbum.id.toString(16)) withQuery (F_User.ownerQuery -> user_ME.userID.toString(16))
 
       val pipeline = sendReceive ~> unmarshal[String]
       val responseFuture = pipeline {Post(uri, HttpEntity(MediaTypes.`application/json`, aAlbum.encryptAlbum(aesKey).toJson.compactPrint)) withHeaders myAuthCookie}
@@ -473,7 +473,7 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
 
     case "picture" =>
 
-      val uri = Uri("http://localhost:8080/picture/")
+      val uri = Uri("http://localhost:8080/picture/"+ aPic.pictureID.toString(16)) withQuery (F_User.ownerQuery -> user_ME.userID.toString(16))
 
       val pipeline = sendReceive ~> unmarshal[String]
       val responseFuture = pipeline {Post(uri, HttpEntity(MediaTypes.`application/json`, aPic.encryptPicture(aesKey).toJson.compactPrint)) withHeaders myAuthCookie}
@@ -556,6 +556,7 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
           self ! Simulate//#
       }
 
+    //#Works
     case "album" =>
 
       val uri = Uri("http://localhost:8080/album/"+albumId.toString(16)) withQuery(F_User.ownerQuery -> user_ME.userID.toString(16))
@@ -748,15 +749,20 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
        //putRequest(picType, aPic=pic_ME.copy(ownerID=user_ME.userID,containingAlbum=profile_ME.defaultAlbum))
        putRequest(pageType, aPage= page_ME.copy(ownerID=user_ME.userID))
        //putRequest(postType, aPost= post_ME.copy(creator=user_ME.userID,locationType="profile", location=user_ME.profileID))
-      //putRequest(albumType, aAlbum=album_ME.copy(ownerID=user_ME.userID))
+       //putRequest(albumType, aAlbum=album_ME.copy(ownerID=user_ME.userID))
 
     case PictureUploaded =>
       log.info("============>>>>>>>>>>>>>>> Picture upload successful !!")
       deleteRequest(picType, picId = myPics.head)
+      getRequest(picType, picId =myPics.head)
+      //postRequest(picType, aPic= pic_ME.copy(name="new name", ownerID=user_ME.userID, pictureID=myPics.head))
+
 
     case PageCreated =>
       log.info("============>>>>>>>>>>>>>>> Page creation successful !!")
        //deleteRequest(pageType, pageId=myPages.head)
+      //postRequest(pageType, aPage= page_ME.copy(name="new name", ownerID=user_ME.userID,ID=myPages.head))
+      //deleteRequest(pageType, pageId=myPages.head)
       //postRequest(pageType, aPage= page_ME.copy(name="new name", ownerID=user_ME.userID,ID=myPages.head))
       //getRequest(pageType,pageId=myPages.head)
       putRequest(postType, aPost= post_ME.copy(creator=user_ME.userID,locationType="page", location=myPages.head))
@@ -774,7 +780,29 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
 
     case AlbumCreated =>
       log.info("============>>>>>>>>>>>>>>> Album creation successful !!")
-    //Test code block ends
+      getRequest(albumType, albumId= myAlbums.head)
+
+    case AlbumRetrieved =>
+      log.info("============>>>>>>>>>>>>>>> Album retrieval successful !!")
+      postRequest(albumType,  aAlbum= album_ME.copy(name="new name", ownerID=user_ME.userID, id=myAlbums.head))
+
+    case AlbumUpdated =>
+      log.info("============>>>>>>>>>>>>>>> Album retrieval successful !!")
+      deleteRequest(albumType, albumId=myAlbums.head)
+
+    case PictureRetrieved =>
+      log.info("============>>>>>>>>>>>>>>> picture retrieval successful !!")
+
+    case PictureUpdated =>
+      log.info("============>>>>>>>>>>>>>>> Picture update successful !!")
+      deleteRequest(picType,picId= myPics.head)
+
+    case PictureDeleted =>
+      log.info("============>>>>>>>>>>>>>>> Picture delete successful !!")
+
+      //Test code block ends
+
+
 
   }
 
