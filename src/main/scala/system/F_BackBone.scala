@@ -27,6 +27,9 @@ class F_BackBone extends Actor with ActorLogging {
 
   def receive: Receive = {
     //GET functions
+    case GetUserList =>
+      f_userHandler forward GetUserList
+
     case GetUserInfo(id) =>
       f_userHandler forward GetUserInfo(id)
 
@@ -128,6 +131,8 @@ class F_BackBone extends Actor with ActorLogging {
 
 object F_BackBone {
   def props = Props[F_BackBone]
+
+  case object GetUserList
 
   sealed trait GetInfo //for id doesnt exist make sure to throw a failure with that in the message, this will make the future respond like this
   //To complete the future with an exception you need send a Failure message to the sender. This is not done automatically when an actor throws an exception while processing a message. akka.actor.Status.Failure(exception)

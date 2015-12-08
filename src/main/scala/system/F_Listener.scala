@@ -57,6 +57,18 @@ trait F_ListenerService extends HttpService {
         complete("pong")
       } ~
         pathPrefix("users") {
+            path("getall") {
+              detach() {
+                extractRequestContext { request =>
+                  try {
+                    complete(Await.result((backbone ? GetUserList).mapTo[String], timeout))
+                  } catch {
+                    case ex: TimeoutException =>
+                      complete(500, "Could not retrieve user list!  Server Timed out")
+                  }
+                }
+              }
+            } ~
             pathPrefix("auth") {
               detach() {
                 extractRequestContext { request => complete(setUpAuthenticateUser(request))}

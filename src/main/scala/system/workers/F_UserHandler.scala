@@ -34,6 +34,10 @@ class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
 
   //TODO check all creates and make sure default stuff is overriden that should be (eg no friends on creation)
   def receive: Receive = {
+    case GetUserList =>
+      val replyTo = sender()
+      Future(users.keys.toJson.compactPrint) pipeTo replyTo
+
     case CreateUser(request) =>
       createUser(request)
 
