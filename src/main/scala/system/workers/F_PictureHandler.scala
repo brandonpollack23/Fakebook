@@ -237,7 +237,7 @@ class F_PictureHandler(backbone: ActorRef) extends Actor with ActorLogging {
   def placeImage(picture: Array[Byte]) = { //places image in database and returns the id
     val imageID = getUniqueRandomBigInt(pictureData)
     //SECURITY CHANGE make sure it is actually an image (not now)
-    val fileStream = new FileOutputStream("./images/" + imageID + ".jpg")
+    val fileStream = new FileOutputStream("./images/" + imageID.toString(16) + ".jpg")
     fileStream.write(picture)
     val file = new File("./images/" + imageID + ".jpg")
     pictureData.put(imageID, file)

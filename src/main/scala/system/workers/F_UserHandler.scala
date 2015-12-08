@@ -292,7 +292,7 @@ object F_UserHandler {
    * @param id id
    * @return exception
    */
-  private def noSuchUserException(id: Seq[BigInt]) = new NoSuchElementException("there is no user entry for " + id.mkString(", "))
+  private def noSuchUserException(id: Seq[BigInt]) = new NoSuchElementException("there is no user entry for " + id.map(_.toString(16)).mkString(", "))
 
   /**
    * message to send when user id does not exist
