@@ -127,12 +127,12 @@ trait F_ListenerService extends HttpService {
           } ~
             post {
               detach() {
-                extractRequestContext { request => complete(genericPost(request, UpdatePageData)) }
+                extractRequestContext { request => complete(genericPost(request, UpdatePageData, authRequired = false)) }
               }
             } ~
             delete {
               detach() {
-                extractRequestContext { request => complete(genericDelete(request, DeletePage)) }
+                extractRequestContext { request => complete(genericDelete(request, DeletePage, authRequired = false)) }
               }
             }
           path("newpage") {
@@ -329,7 +329,7 @@ trait F_ListenerService extends HttpService {
    * @param messageConstructor identical
    * @return route
    */
-  def genericDelete(req: RequestContext, messageConstructor: (BigInt) => DeleteInfo) = {
+  def genericDelete(req: RequestContext, messageConstructor: (BigInt) => DeleteInfo, authRequired: Boolean = true) = {
     def delete = () => {
       val id = req.unmatchedPath.dropChars(1).toString()
 
@@ -358,7 +358,7 @@ trait F_ListenerService extends HttpService {
       }
     }
 
-    verifyCookie(req.request, delete)
+    if(authRequired) verifyCookie(req.request, delete) else delete.apply
   }
 
   /**
