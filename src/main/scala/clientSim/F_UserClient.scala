@@ -513,10 +513,10 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
 
     case "page" =>
 
-      val uri = Uri("http://localhost:8080/page/"+pageId.toString(16))
+      val uri = Uri("http://localhost:8080/page/"+pageId.toString(16)) withQuery(F_User.ownerQuery -> user_ME.userID.toString(16))
 
       val pipeline = sendReceive ~> unmarshal[String]
-      val responseFuture = pipeline {Delete(uri)}
+      val responseFuture = pipeline {Delete(uri) withHeaders myAuthCookie}
 
       responseFuture onComplete {
 
@@ -533,10 +533,10 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
 
     case "post" =>
 
-      val uri = Uri("http://localhost:8080/post/"+postId.toString(16))
+      val uri = Uri("http://localhost:8080/post/"+postId.toString(16)) withQuery(F_User.ownerQuery -> user_ME.userID.toString(16))
 
       val pipeline = sendReceive ~> unmarshal[String]
-      val responseFuture = pipeline {Delete(uri)}
+      val responseFuture = pipeline {Delete(uri) withHeaders myAuthCookie}
 
       responseFuture onComplete {
 
@@ -555,10 +555,10 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
 
     case "album" =>
 
-      val uri = Uri("http://localhost:8080/album/"+albumId.toString(16))
+      val uri = Uri("http://localhost:8080/album/"+albumId.toString(16)) withQuery(F_User.ownerQuery -> user_ME.userID.toString(16))
 
       val pipeline = sendReceive ~> unmarshal[String]
-      val responseFuture = pipeline {Delete(uri)}
+      val responseFuture = pipeline {Delete(uri) withHeaders myAuthCookie}
 
       responseFuture onComplete {
 
@@ -575,10 +575,10 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
 
     case "picture" =>
 
-      val uri = Uri("http://localhost:8080/picture/"+picId.toString(16))
+      val uri = Uri("http://localhost:8080/picture/"+picId.toString(16)) withQuery(F_User.ownerQuery -> user_ME.userID.toString(16))
 
       val pipeline = sendReceive ~> unmarshal[String]
-      val responseFuture = pipeline {Delete(uri)}
+      val responseFuture = pipeline {Delete(uri) withHeaders myAuthCookie}
 
       responseFuture onComplete {
 
@@ -742,17 +742,35 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
       getRequest(profileType)
 
     case ProfileRetrieved => //Put any test request under this case and steer match forward as per requirement
-      putRequest(picType, aPic=pic_ME.copy(ownerID=user_ME.userID))
-      //putRequest(pageType, aPage= page_ME.copy(ownerID=user_ME.userID))
-      //putRequest(postType, aPost= post_ME.copy(creator=user_ME.userID,locationType="profile", location=user_ME.profileID))
-
+       putRequest(picType, aPic=pic_ME.copy(ownerID=user_ME.userID,containingAlbum=profile_ME.defaultAlbum))
+       //putRequest(pageType, aPage= page_ME.copy(ownerID=user_ME.userID))
+       //putRequest(postType, aPost= post_ME.copy(creator=user_ME.userID,locationType="profile", location=user_ME.profileID))
+      //putRequest(albumType, aAlbum=album_ME.copy(ownerID=user_ME.userID))
 
     case PictureUploaded =>
       log.info("============>>>>>>>>>>>>>>> Picture upload successful !!")
+      deleteRequest(picType,myPics.head)
 
     case PageCreated =>
       log.info("============>>>>>>>>>>>>>>> Page creation successful !!")
+       //deleteRequest(pageType, pageId=myPages.head)
+    //postRequest(pageType, aPage= page_ME.copy(name="new name", ownerID=user_ME.userID,ID=myPages.head))
+      //getRequest(pageType,pageId=myPages.head)
+      //putRequest(postType, aPost= post_ME.copy(creator=user_ME.userID,locationType="page", location=myPages.head))
 
+    case PageRetrieved =>
+      log.info("============>>>>>>>>>>>>>>> Page Retrival successful !!")
+      //postRequest(pageType, aPage= page_ME.copy(name="new name", ownerID=user_ME.userID,ID=myPages.head))
+
+    case PageUpdated =>
+      log.info("============>>>>>>>>>>>>>>> Page updation successful !!")
+      deleteRequest(pageType, pageId=myPages.head)
+
+    case PostCreated =>
+      log.info("============>>>>>>>>>>>>>>> Post creation successful !!")
+
+    case AlbumCreated =>
+      log.info("============>>>>>>>>>>>>>>> Album creation successful !!")
     //Test code block ends
 
   }
