@@ -8,6 +8,8 @@ object CaseObjects {
 
   case object GetAuthCode
 
+  case object Authenticated
+
   case object Simulate
 
 

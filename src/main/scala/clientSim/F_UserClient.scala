@@ -62,8 +62,8 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
   var album_ME :F_Album   = F_Album("My Album", "Vacations", new Date(2015-1900,1,1), false, 0, 0, List[BigInt]())
   var pic_ME :F_Picture    = F_Picture("My Pic", "Holidays", 0, new Date(2015-1900,1,1), 0, 0, 0)
 
-  var userId    : BigInt = 0
-  var profileId : BigInt = 0
+  //var userId    : BigInt = 0
+  //var profileId : BigInt = 0
 
   //Lists to record current status
   var myPosts  = List[BigInt]()
@@ -75,7 +75,7 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
 
   var myAuthCookie: HttpHeader = Cookie(HttpCookie(F_User.authenticationCookieName, content = "0"))
 
-  //TODO check about the id required for get and delete, and cookie authentication code to be implemented
+
   //TODO friend request code
 
   def initialize ={
@@ -91,6 +91,7 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
 
   }
 
+  //#Works
   def authRequest = {
 
     val uri = Uri("http://localhost:8080/users/auth/"+user_ME.userID.toString(16))
@@ -110,7 +111,7 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
         val encryptedCode = BigInt(authenticationCookie.content, 16).toByteArray
         val decryptedCodeString = BigInt(encryptedCode.decryptRSA(privateKey)).toString(16)
         myAuthCookie = Cookie(HttpCookie(F_User.authenticationCookieName, content = decryptedCodeString))
-        getRequest(profileType)
+        self! Authenticated
 
       case Failure(error) =>
         log.error(error, "Failed to fetch authorization cookie " + error.getMessage)
@@ -121,9 +122,9 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
 
 
 
-  def putRequest(reqType:String, aUser:F_User, aPage:F_Page=null, aPost:F_Post=null, aAlbum:F_Album=null, aPic:F_Picture=null) = reqType match{
+  def putRequest(reqType:String, aUser:F_User=null, aPage:F_Page=null, aPost:F_Post=null, aAlbum:F_Album=null, aPic:F_Picture=null) = reqType match{
 
-
+    //#Works
     case "user" =>
 
       val uri = Uri("http://localhost:8080/users/newuser")
@@ -136,7 +137,7 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
         case Success(jsonRef) =>
           user_ME = jsonRef.parseJson.convertTo[F_UserE].decryptUserE(aesKey,privateKey)
           log.info("==============>>>>>>>> user profile created")
-          self ! GetAuthCode
+          self ! UserCreated
 
         case Failure(error) =>
           log.error(error, "Failed to run Create User because of " + error.getMessage)
@@ -145,10 +146,10 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
 
     case "page" =>
 
-      val uri = Uri("http://localhost:8080/page/newpage")
+      val uri = Uri("http://localhost:8080/page/newpage") withQuery(F_User.ownerQuery -> user_ME.userID.toString(16))
 
       val pipeline = sendReceive ~> unmarshal[String]
-      val responseFuture = pipeline {Put(uri, HttpEntity(MediaTypes.`application/json`, aPage.toJson.compactPrint))}
+      val responseFuture = pipeline {Put(uri, HttpEntity(MediaTypes.`application/json`, aPage.toJson.compactPrint)) withHeaders myAuthCookie}
 
       responseFuture onComplete {
 
@@ -166,10 +167,10 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
 
     case "post" =>
 
-      val uri = Uri("http://localhost:8080/post")
+      val uri = Uri("http://localhost:8080/post") withQuery(F_User.ownerQuery -> user_ME.userID.toString(16))
 
       val pipeline = sendReceive ~> unmarshal[String]
-      val responseFuture = pipeline {Put(uri, HttpEntity(MediaTypes.`application/json`, aPost.encryptPost(aesKey).toJson.compactPrint))}
+      val responseFuture = pipeline {Put(uri, HttpEntity(MediaTypes.`application/json`, aPost.encryptPost(aesKey).toJson.compactPrint)) withHeaders myAuthCookie}
 
       responseFuture onComplete {
 
@@ -193,10 +194,10 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
 
     case "album" =>
 
-      val uri = Uri("http://localhost:8080/album/createalbum")
+      val uri = Uri("http://localhost:8080/album/createalbum") withQuery(F_User.ownerQuery -> user_ME.profileID.toString(16))
 
       val pipeline = sendReceive ~> unmarshal[String]
-      val responseFuture = pipeline {Put(uri, HttpEntity(MediaTypes.`application/json`, aAlbum.encryptAlbum(aesKey).toJson.compactPrint))}
+      val responseFuture = pipeline {Put(uri, HttpEntity(MediaTypes.`application/json`, aAlbum.encryptAlbum(aesKey).toJson.compactPrint)) withHeaders myAuthCookie}
 
       responseFuture onComplete {
 
@@ -214,11 +215,11 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
 
     case "picture" =>
 
-      val uri = Uri("http://localhost:8080/data/uploadimage")
+      val uri = Uri("http://localhost:8080/data/uploadimage") withQuery(F_User.ownerQuery -> user_ME.userID.toString(16))
 
       val pipeline = sendReceive ~> unmarshal[String]
       val picTrans:F_PictureTransmit = F_PictureTransmit(aPic.encryptPicture(aesKey), Array[Byte](1,2,3))
-      val responseFuture = pipeline {Put(uri, HttpEntity(MediaTypes.`application/json`, picTrans.toJson.compactPrint))}
+      val responseFuture = pipeline {Put(uri, HttpEntity(MediaTypes.`application/json`, picTrans.toJson.compactPrint)) withHeaders myAuthCookie}
 
       responseFuture onComplete {
 
@@ -238,9 +239,10 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
 
   def getRequest(reqType:String, pageId:BigInt=0, postId:BigInt=0, albumId:BigInt=0, picId:BigInt=0) = reqType match {
 
+    //#Works
     case "user" =>
 
-      val uri = Uri("http://localhost:8080/users/"+userId.toString(16))
+      val uri = Uri("http://localhost:8080/users/"+user_ME.userID.toString(16))
 
       val pipeline = sendReceive ~> unmarshal[String]
       val responseFuture = pipeline {Get(uri)}
@@ -256,7 +258,7 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
         //self ! Simulate//#
       }
 
-
+    //#Works
     case "profile" =>
 
       val uri = Uri("http://localhost:8080/profile/" + user_ME.profileID.toString(16))
@@ -363,12 +365,13 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
 
   def postRequest(reqType:String, aUser:F_User=null, aProfile:F_UserProfile=null, aPage:F_Page=null, aPost:F_Post=null, aAlbum:F_Album=null, aPic:F_Picture=null) = reqType match {
 
+    //#Works
     case "user" =>
 
-      val uri = Uri("http://localhost:8080/users/")
+      val uri = Uri("http://localhost:8080/users/"+user_ME.userID.toString(16)) withQuery(F_User.ownerQuery -> user_ME.userID.toString(16))
 
       val pipeline = sendReceive ~> unmarshal[String]
-      val responseFuture = pipeline {Post(uri, HttpEntity(MediaTypes.`application/json`, aUser.encryptUser(aesKey).toJson.compactPrint))}
+      val responseFuture = pipeline {Post(uri, HttpEntity(MediaTypes.`application/json`, aUser.encryptUser(aesKey).toJson.compactPrint)) withHeaders myAuthCookie}
 
       responseFuture onComplete {
 
@@ -383,7 +386,7 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
         //self ! Simulate//#
       }
 
-
+    //#Works
     case "profile" =>
 
       val uri = Uri("http://localhost:8080/profile/" + user_ME.profileID.toString(16)) withQuery (F_User.ownerQuery -> user_ME.userID.toString(16))
@@ -407,10 +410,10 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
 
     case "page" =>
 
-      val uri = Uri("http://localhost:8080/page/")
+      val uri = Uri("http://localhost:8080/page/"+aPage.ID.toString(16))
 
       val pipeline = sendReceive ~> unmarshal[String]
-      val responseFuture = pipeline {Post(uri, HttpEntity(MediaTypes.`application/json`, aPage.toJson.compactPrint))}
+      val responseFuture = pipeline {Post(uri, HttpEntity(MediaTypes.`application/json`, aPage.toJson.compactPrint)) withHeaders myAuthCookie}
 
       responseFuture onComplete {
 
@@ -430,7 +433,7 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
       val uri = Uri("http://localhost:8080/post/")
 
       val pipeline = sendReceive ~> unmarshal[String]
-      val responseFuture = pipeline {Post(uri, HttpEntity(MediaTypes.`application/json`, aPost.encryptPost(aesKey).toJson.compactPrint))}
+      val responseFuture = pipeline {Post(uri, HttpEntity(MediaTypes.`application/json`, aPost.encryptPost(aesKey).toJson.compactPrint)) withHeaders myAuthCookie}
 
       responseFuture onComplete {
 
@@ -450,7 +453,7 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
       val uri = Uri("http://localhost:8080/album/")
 
       val pipeline = sendReceive ~> unmarshal[String]
-      val responseFuture = pipeline {Post(uri, HttpEntity(MediaTypes.`application/json`, aAlbum.encryptAlbum(aesKey).toJson.compactPrint))}
+      val responseFuture = pipeline {Post(uri, HttpEntity(MediaTypes.`application/json`, aAlbum.encryptAlbum(aesKey).toJson.compactPrint)) withHeaders myAuthCookie}
 
       responseFuture onComplete {
 
@@ -470,7 +473,7 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
       val uri = Uri("http://localhost:8080/picture/")
 
       val pipeline = sendReceive ~> unmarshal[String]
-      val responseFuture = pipeline {Post(uri, HttpEntity(MediaTypes.`application/json`, aPic.encryptPicture(aesKey).toJson.compactPrint))}
+      val responseFuture = pipeline {Post(uri, HttpEntity(MediaTypes.`application/json`, aPic.encryptPicture(aesKey).toJson.compactPrint)) withHeaders myAuthCookie}
 
       responseFuture onComplete {
 
@@ -490,11 +493,12 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
 
   def deleteRequest(reqType:String, pageId:BigInt=0, postId:BigInt=0, albumId:BigInt=0, picId:BigInt=0) = reqType match {
 
+    //#Works
     case "user" =>
-      val uri = Uri("http://localhost:8080/users/"+userId.toString(16))
+      val uri = Uri("http://localhost:8080/users/"+user_ME.userID.toString(16)) withQuery(F_User.ownerQuery -> user_ME.userID.toString(16))
 
       val pipeline = sendReceive ~> unmarshal[String]
-      val responseFuture = pipeline {Delete(uri)}
+      val responseFuture = pipeline {Delete(uri) withHeaders myAuthCookie}
 
       responseFuture onComplete {
 
@@ -594,21 +598,8 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
 
   def receive ={
 
-    //Test code block begins
-    case Begin =>
-      putRequest(userType,user_ME)
 
-    case UserCreated =>
-      log.info("============>>>>>>>>>>>>>>>User creation successful ")
-
-    case GetAuthCode =>
-      authRequest
-
-    case ProfileRetrieved => //by default send the server your desired profile information
-      postRequest(profileType, aProfile= profile_ME.copy(description = "description for client " + clientNumber))
-    //Test code block ends
-
-    //original Simulation block begin here
+    //original Simulation block begins
 /*
         case Begin =>
           putRequest(userType, user_ME)
@@ -737,7 +728,32 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
           }
 
 */
+    //Simulation block ends
 
+    //Test code block begins
+    case Begin =>
+      putRequest(userType,user_ME)
+
+    case UserCreated =>
+      log.info("============>>>>>>>>>>>>>>>User creation successful !!")
+      authRequest
+
+    case Authenticated =>
+      getRequest(profileType)
+
+    case ProfileRetrieved => //Put any test request under this case and steer match forward as per requirement
+      putRequest(picType, aPic=pic_ME.copy(ownerID=user_ME.userID))
+      //putRequest(pageType, aPage= page_ME.copy(ownerID=user_ME.userID))
+      //putRequest(postType, aPost= post_ME.copy(creator=user_ME.userID,locationType="profile", location=user_ME.profileID))
+
+
+    case PictureUploaded =>
+      log.info("============>>>>>>>>>>>>>>> Picture upload successful !!")
+
+    case PageCreated =>
+      log.info("============>>>>>>>>>>>>>>> Page creation successful !!")
+
+    //Test code block ends
 
   }
 
