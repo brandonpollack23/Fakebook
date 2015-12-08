@@ -134,14 +134,14 @@ trait F_ListenerService extends HttpService {
               detach() {
                 extractRequestContext { request => complete(genericDelete(request, DeletePage, authRequired = false)) }
               }
-            }
-          path("newpage") {
-            put {
-              detach() {
-                extractRequestContext { request => complete(genericPut(CreatePage(request.request))) }
+            } ~
+            path("newpage") {
+              put {
+                detach() {
+                  extractRequestContext { request => complete(genericPut(CreatePage(request.request))) }
+                }
               }
             }
-          }
         } ~
         pathPrefix("profile") {
           get {
@@ -263,9 +263,9 @@ trait F_ListenerService extends HttpService {
    * @return
    */
   def genericPost(req: RequestContext, messageConstructor: (BigInt, HttpRequest) => PostInfo, authRequired: Boolean = true) = {
-    def post = () => {
-      val id = req.unmatchedPath.dropChars(1).toString()
+    val id = req.unmatchedPath.dropChars(1).toString()
 
+    def post = () => {
       if (!id.contains("/")) {
         try {
           val idBig = BigInt(id, 16)
@@ -317,10 +317,7 @@ trait F_ListenerService extends HttpService {
       }
     }
 
-    if(authRequired) { //unless creating a use for the first time we need to authenticate
-      verifyCookie(message.httpRequest, put)
-    }
-    else put.apply()
+    if(authRequired) verifyCookie(message.httpRequest, put) else put.apply()
   }
 
   /**
@@ -330,9 +327,8 @@ trait F_ListenerService extends HttpService {
    * @return route
    */
   def genericDelete(req: RequestContext, messageConstructor: (BigInt) => DeleteInfo, authRequired: Boolean = true) = {
+    val id = req.unmatchedPath.dropChars(1).toString()
     def delete = () => {
-      val id = req.unmatchedPath.dropChars(1).toString()
-
       if (!id.contains("/")) {
         try {
           val idBig = BigInt(id, 16)

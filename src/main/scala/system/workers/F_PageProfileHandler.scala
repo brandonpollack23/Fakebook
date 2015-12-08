@@ -119,14 +119,14 @@ class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
     try {
       val isProfile = request.uri.query.get(F_Post.locationTypeString).get == F_Post.locationProfile
       val newPost: F_PostEOrPost = if(isProfile) {
-        val pst = request.entity.asString.parseJson.convertTo[F_PostE].copy(dateOfCreation = new Date, postID = postID, locationType = F_Post.locationProfile)
-        //TODO check if location is valid
-        pst
-      } else {
-        val pst = request.entity.asString.parseJson.convertTo[F_Post].copy(dateOfCreation = new Date, postID = postID, locationType = F_Post.locationPage)
-        //TODO check if location is valid
-        pst
-      }
+          val pst = request.entity.asString.parseJson.convertTo[F_PostE].copy(dateOfCreation = new Date, postID = postID, locationType = F_Post.locationProfile)
+          //TODO check if location is valid
+          pst
+        } else {
+          val pst = request.entity.asString.parseJson.convertTo[F_Post].copy(dateOfCreation = new Date, postID = postID, locationType = F_Post.locationPage)
+          //TODO check if location is valid
+          pst
+        }
 
       val replyTo = sender()
       posts.put(postID, newPost)

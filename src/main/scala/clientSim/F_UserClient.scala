@@ -166,17 +166,20 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
 
 
     case "post" =>
+      val location = aPost.locationType
 
-      val uri = Uri("http://localhost:8080/post") withQuery(F_User.ownerQuery -> user_ME.userID.toString(16))
+      val uri = Uri("http://localhost:8080/post") withQuery(F_User.ownerQuery -> user_ME.userID.toString(16), F_Post.locationTypeString -> location)
 
-      val pipeline = sendReceive ~> unmarshal[String]
-      val responseFuture = pipeline {Put(uri, HttpEntity(MediaTypes.`application/json`, aPost.encryptPost(aesKey).toJson.compactPrint)) withHeaders myAuthCookie}
+      val pipeline = sendReceive
+      val responseFuture = if(location == F_Post.locationProfile) pipeline {Put(uri, HttpEntity(MediaTypes.`application/json`, aPost.encryptPost(aesKey).toJson.compactPrint)) withHeaders myAuthCookie}
+                            else pipeline {Put(uri, HttpEntity(MediaTypes.`application/json`, aPost.toJson.compactPrint)) withHeaders myAuthCookie}
 
       responseFuture onComplete {
 
-        case Success(jsonRef) =>
+        case Success(response) =>
           log.info("==============>>>>>>>> createPost successful!!")
-          val temp:F_Post = jsonRef.parseJson.convertTo[F_PostE].decryptPost(aesKey)
+          val temp = if(location == F_Post.locationProfile) response.entity.asString.parseJson.convertTo[F_PostE].decryptPost(aesKey)
+                                  else response.entity.asString.parseJson.convertTo[F_Post]
           myPosts ::= temp.postID
           if(temp.locationType=="profile")
             myProfPosts ::= temp.postID
@@ -742,21 +745,21 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
       getRequest(profileType)
 
     case ProfileRetrieved => //Put any test request under this case and steer match forward as per requirement
-       putRequest(picType, aPic=pic_ME.copy(ownerID=user_ME.userID,containingAlbum=profile_ME.defaultAlbum))
-       //putRequest(pageType, aPage= page_ME.copy(ownerID=user_ME.userID))
+       //putRequest(picType, aPic=pic_ME.copy(ownerID=user_ME.userID,containingAlbum=profile_ME.defaultAlbum))
+       putRequest(pageType, aPage= page_ME.copy(ownerID=user_ME.userID))
        //putRequest(postType, aPost= post_ME.copy(creator=user_ME.userID,locationType="profile", location=user_ME.profileID))
       //putRequest(albumType, aAlbum=album_ME.copy(ownerID=user_ME.userID))
 
     case PictureUploaded =>
       log.info("============>>>>>>>>>>>>>>> Picture upload successful !!")
-      deleteRequest(picType,myPics.head)
+      deleteRequest(picType, picId = myPics.head)
 
     case PageCreated =>
       log.info("============>>>>>>>>>>>>>>> Page creation successful !!")
        //deleteRequest(pageType, pageId=myPages.head)
-    //postRequest(pageType, aPage= page_ME.copy(name="new name", ownerID=user_ME.userID,ID=myPages.head))
+      //postRequest(pageType, aPage= page_ME.copy(name="new name", ownerID=user_ME.userID,ID=myPages.head))
       //getRequest(pageType,pageId=myPages.head)
-      //putRequest(postType, aPost= post_ME.copy(creator=user_ME.userID,locationType="page", location=myPages.head))
+      putRequest(postType, aPost= post_ME.copy(creator=user_ME.userID,locationType="page", location=myPages.head))
 
     case PageRetrieved =>
       log.info("============>>>>>>>>>>>>>>> Page Retrival successful !!")
