@@ -187,7 +187,7 @@ class F_PictureHandler(backbone: ActorRef) extends Actor with ActorLogging {
 
     try {
       val newAlbum = request.entity.asString.parseJson.convertTo[F_AlbumE].copy(id = albumID, dateOfCreation = new Date, images = List[BigInt]())
-      albums.put(newAlbum.id, newAlbum)
+      albums.put(albumID, newAlbum)
       val replyTo = sender()
       Future(newAlbum.toJson.compactPrint).mapTo[String] pipeTo replyTo
     } catch {

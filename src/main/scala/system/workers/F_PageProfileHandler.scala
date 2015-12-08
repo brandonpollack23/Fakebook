@@ -100,10 +100,10 @@ class F_PageProfileHandler(backbone: ActorRef) extends Actor with ActorLogging {
 
   def createPage(request: HttpRequest) = {
     val pageID = getUniqueRandomBigInt(pages)
-    val defaultAlbumID = Await.result((backbone ? CreateDefaultAlbum(pageID)).mapTo[BigInt], 5 seconds)
+    val defaultAlbum = Await.result((backbone ? CreateDefaultAlbum(pageID)).mapTo[F_AlbumE], 5 seconds)
 
     try {
-      val newPage = request.entity.asString.parseJson.convertTo[F_Page].copy(defaultAlbumID = defaultAlbumID, dateOfCreation = new Date)
+      val newPage = request.entity.asString.parseJson.convertTo[F_Page].copy(defaultAlbumID = defaultAlbum.id, dateOfCreation = new Date)
       pages.put(pageID, newPage)
       val replyTo = sender()
       Future(newPage.toJson.compactPrint).mapTo[String] pipeTo replyTo
