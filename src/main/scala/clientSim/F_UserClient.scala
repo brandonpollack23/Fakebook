@@ -589,7 +589,7 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
         case Success(jsonRef) =>
           log.info("=======>>>>  Friend request handled !!")
           //self ! Simulate//#
-
+          self ! FriendRequestHandled
 
         case Failure(error) =>
           log.error(error, "Couldn't handle Friend request !!")
@@ -597,7 +597,7 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
       }
 
     case "removeFriend" =>
-      val uri = Uri("http://localhost:8080/users/request/remove"+user_ME.userID.toString(16)) withQuery(F_User.ownerQuery -> friendUser.userID.toString(16))
+      val uri = Uri("http://localhost:8080/users/remove/"+user_ME.userID.toString(16)) withQuery(F_User.ownerQuery -> user_ME.userID.toString(16), F_User.friendRemoveString -> user_ME.friendRequests.head._1.toString(16))
 
       val pipeline = sendReceive ~> unmarshal[String]
       val responseFuture = pipeline {Post(uri) withHeaders myAuthCookie}
@@ -605,9 +605,9 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
       responseFuture onComplete {
 
         case Success(jsonRef) =>
-          log.info("Friend remove successful !!")
+          log.info("===>>>   Friend remove successful !!")
           //self ! Simulate//#
-          self ! FriendRequestSent
+
 
         case Failure(error) =>
           log.error(error, "Couldn't remove Friend !!")
@@ -875,7 +875,7 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
        //putRequest(pageType, aPage= page_ME.copy(ownerID=user_ME.userID))
        // putRequest(postType, aPost= post_ME.copy(creator=user_ME.userID,locationType="profile", location=user_ME.profileID))
        //putRequest(albumType, aAlbum=album_ME.copy(ownerID=user_ME.userID))
-        Thread.sleep(2000)
+        Thread.sleep(5000)
       getRequest(getUserList)   //1. get all user list
 
     case UserListRetrieved =>     //2. get user info of friend
@@ -897,12 +897,14 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
       getRequest(userType, userId = user_ME.userID)
 
     case HandleFriendRequest =>
+      Thread.sleep(5000)
       getRequest(friendRequesterInfo, userId = user_ME.friendRequests.head._1)
 
     case FriendRequesterInfoRetrieved =>
       postRequest(handleRequest)
 
-
+    case FriendRequestHandled =>
+      postRequest(removeFriend )
 
 /*
     case PictureUploaded =>
