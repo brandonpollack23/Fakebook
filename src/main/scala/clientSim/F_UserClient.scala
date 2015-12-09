@@ -43,6 +43,7 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
   val removeFriend  : String = "removeFriend"
   val getUserList   : String = "getUserList"
   val friendUserInfo: String = "friendUserInfo"
+  val friendRequesterInfo :String = "friendRequesterInfo"
 
   //AES Encryption
   val kGen: KeyGenerator = KeyGenerator.getInstance("AES")
@@ -405,6 +406,25 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
         //self ! Simulate//#
       }
 
+    case "friendRequesterInfo" =>
+
+      val uri = Uri("http://localhost:8080/users/"+userId.toString(16))
+
+      val pipeline = sendReceive ~> unmarshal[String]
+      val responseFuture = pipeline {Get(uri)}
+
+      responseFuture onComplete {
+        case Success(jsonRef) =>
+          log.info("==============>>>>>>>> Friend request sender data successfully Retrieved!!")
+          friendUser = jsonRef.parseJson.convertTo[F_UserE]
+          //self ! Simulate//#
+          self ! FriendRequesterInfoRetrieved
+
+        case Failure(error) =>
+          log.error(error, "Couldn't Retrieve Friend request sender Data !!")
+        //self ! Simulate//#
+      }
+
   }
 
 
@@ -554,7 +574,7 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
       val uri = Uri("http://localhost:8080/users/request/handle"+user_ME.userID.toString(16)) withQuery(F_User.ownerQuery -> user_ME.userID.toString(16) ,F_User.friendRequestString -> user_ME.friendRequests.head._1.toString(16), F_User.acceptFriendString -> true.toString)
 
       val pipeline = sendReceive ~> unmarshal[String]
-      val responseFuture = pipeline {Post(uri, HttpEntity(MediaTypes.`application/json`, aesKey.toByteArray.encryptRSA().toJson.compactPrint)) withHeaders myAuthCookie}
+      val responseFuture = pipeline {Post(uri, HttpEntity(MediaTypes.`application/json`, aesKey.toByteArray.encryptRSA(friendUser.identityKey).toJson.compactPrint)) withHeaders myAuthCookie}
 
       responseFuture onComplete {
 
@@ -869,6 +889,9 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
       getRequest(userType, userId = user_ME.userID)
 
     case HandleFriendRequest =>
+      getRequest(friendRequesterInfo, userId = user_ME.friendRequests.head._1)
+
+    case FriendRequesterInfoRetrieved =>
       postRequest(handleRequest)
 
 
