@@ -14,12 +14,16 @@ object TestMain {
 
     implicit val system = ActorSystem("TestActorSystem")
 
-    val handler:ActorRef = system.actorOf(F_Server.props,"handler")
+    val handler: ActorRef = system.actorOf(F_Server.props, "handler")
     IO(Http) ! Http.Bind(handler, "localhost", port = 8080)
 
-    var userRef: ActorRef = system.actorOf(Props(new F_UserClient(1)), "UserClientActor")
-    userRef ! Begin
+    var i = 0
 
+    while (i < 5) {
+    var userRef: ActorRef = system.actorOf(Props(new F_UserClient(i)), "UserClientActor" + i)
+    userRef ! Begin
+      i += 1
+  }
 
     /*
     val userLoad :Int= 100

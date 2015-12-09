@@ -40,7 +40,7 @@ class F_BackBone extends Actor with ActorLogging {
       f_pageProfileHandler forward GetProfileInfo(id)
 
     case GetPictureInfo(id) =>
-      f_pageProfileHandler forward GetPageInfo(id)
+      f_pictureHandler forward GetPictureInfo(id)
 
     case GetAlbumInfo(id) =>
       f_pictureHandler forward GetAlbumInfo(id)

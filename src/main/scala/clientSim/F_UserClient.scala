@@ -40,6 +40,8 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
   val albumType     : String = "album"
   val friendRequest : String = "friendRequest"
   val removeFriend  : String = "removeFriend"
+  val getUserList   : String = "getUserList"
+  val friendUserInfo: String = "friendUserInfo"
 
   //AES Encryption
   val kGen: KeyGenerator = KeyGenerator.getInstance("AES")
@@ -61,9 +63,7 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
   var post_ME   = F_Post("Some News", 0, "profile", 0, new Date(2015-1900,1,1), 0)
   var album_ME :F_Album   = F_Album("My Album", "Vacations", new Date(2015-1900,1,1), false, 0, 0, List[BigInt]())
   var pic_ME :F_Picture    = F_Picture("My Pic", "Holidays", 0, new Date(2015-1900,1,1), 0, 0, 0)
-
-  //var userId    : BigInt = 0
-  //var profileId : BigInt = 0
+  var friendUser : F_UserE = F_UserE(null,null,null,null,null,null,null,null,0,null,0)
 
   //Lists to record current status
   var myPosts  = List[BigInt]()
@@ -72,6 +72,7 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
   var myPics   = List[BigInt]()
   var myAlbums = List[BigInt]()
   var myPages  = List[BigInt]()
+  var allUsers = List[BigInt]()
 
   var myAuthCookie: HttpHeader = Cookie(HttpCookie(F_User.authenticationCookieName, content = "0"))
 
@@ -119,7 +120,6 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
     }
 
   }
-
 
 
   def putRequest(reqType:String, aUser:F_User=null, aPage:F_Page=null, aPost:F_Post=null, aAlbum:F_Album=null, aPic:F_Picture=null) = reqType match{
@@ -240,12 +240,12 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
   }
 
 
-  def getRequest(reqType:String, pageId:BigInt=0, postId:BigInt=0, albumId:BigInt=0, picId:BigInt=0) = reqType match {
+  def getRequest(reqType:String,userId:BigInt=0, profileId:BigInt=0, pageId:BigInt=0, postId:BigInt=0, albumId:BigInt=0, picId:BigInt=0) = reqType match {
 
     //#Works
     case "user" =>
 
-      val uri = Uri("http://localhost:8080/users/"+user_ME.userID.toString(16))
+      val uri = Uri("http://localhost:8080/users/"+userId.toString(16))
 
       val pipeline = sendReceive ~> unmarshal[String]
       val responseFuture = pipeline {Get(uri)}
@@ -264,7 +264,7 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
     //#Works
     case "profile" =>
 
-      val uri = Uri("http://localhost:8080/profile/" + user_ME.profileID.toString(16))
+      val uri = Uri("http://localhost:8080/profile/" + profileId.toString(16))
 
       val pipeline = sendReceive ~> unmarshal[String]
       val responseFuture = pipeline {Get(uri)}
@@ -281,7 +281,7 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
         //self ! Simulate//#
       }
 
-
+    //#Works
     case "page" =>
 
       val uri = Uri("http://localhost:8080/page/" + pageId.toString(16))
@@ -341,7 +341,7 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
         //self ! Simulate//#
       }
 
-
+    //#Works
     case "picture" =>
 
       val uri = Uri("http://localhost:8080/picture/"+picId.toString(16))
@@ -361,7 +361,44 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
         //self ! Simulate//#
       }
 
+    case "getUserList" =>
+      val uri = Uri("http://localhost:8080/users/getall")
 
+      val pipeline = sendReceive ~> unmarshal[String]
+      val responseFuture = pipeline {Get(uri)}
+
+      responseFuture onComplete {
+
+        case Success(jsonRef) =>
+          log.info("Received List of all users !!")
+          allUsers = jsonRef.parseJson.convertTo[List[BigInt]]
+          self ! UserListRetrieved
+        //self ! Simulate//#
+
+
+        case Failure(error) =>
+          log.error(error, "Couldn't Retrieve User List !!")
+        //self ! Simulate//#
+      }
+
+    case "friendUserInfo" =>
+
+      val uri = Uri("http://localhost:8080/users/"+userId.toString(16))
+
+      val pipeline = sendReceive ~> unmarshal[String]
+      val responseFuture = pipeline {Get(uri)}
+
+      responseFuture onComplete {
+        case Success(jsonRef) =>
+          log.info("==============>>>>>>>> User Data successfully Retrieved!!")
+          friendUser = jsonRef.parseJson.convertTo[F_UserE]
+          //self ! Simulate//#
+          self ! FriendUserInfoRetrieved
+
+        case Failure(error) =>
+          log.error(error, "Couldn't Retrieve User Data !!")
+        //self ! Simulate//#
+      }
 
   }
 
@@ -410,7 +447,7 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
         //self ! Simulate//#
       }
 
-
+    //#Works
     case "page" =>
 
       val uri = Uri("http://localhost:8080/page/"+aPage.ID.toString(16)) withQuery (F_User.ownerQuery -> user_ME.userID.toString(16))
@@ -470,7 +507,7 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
         //self ! Simulate//#
       }
 
-
+    //#Works
     case "picture" =>
 
       val uri = Uri("http://localhost:8080/picture/"+ aPic.pictureID.toString(16)) withQuery (F_User.ownerQuery -> user_ME.userID.toString(16))
@@ -490,6 +527,41 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
         //self ! Simulate//#
       }
 
+    case "friendRequest" =>             //TODO check the query and entity correctness
+      val uri = Uri("http://localhost:8080/users/request"+user_ME.userID.toString(16)) withQuery(F_User.ownerQuery -> friendUser.userID.toString(16))
+
+      val pipeline = sendReceive ~> unmarshal[String]
+      val responseFuture = pipeline {Post(uri, HttpEntity(MediaTypes.`application/json`, aesKey.toByteArray.encryptRSA(friendUser.identityKey).toJson.compactPrint)) withHeaders myAuthCookie}
+
+      responseFuture onComplete {
+
+        case Success(jsonRef) =>
+          log.info("Friend request sent !!")
+          //self ! Simulate//#
+          self ! FriendRequestSent
+
+        case Failure(error) =>
+          log.error(error, "Couldn't send Friend request !!")
+        //self ! Simulate//#
+      }
+
+    case "removeFriend" =>
+      val uri = Uri("http://localhost:8080/users/request"+user_ME.userID.toString(16)) withQuery(F_User.ownerQuery -> friendUser.userID.toString(16))
+
+      val pipeline = sendReceive ~> unmarshal[String]
+      val responseFuture = pipeline {Post(uri) withHeaders myAuthCookie}
+
+      responseFuture onComplete {
+
+        case Success(jsonRef) =>
+          log.info("Friend remove successful !!")
+          //self ! Simulate//#
+          self ! FriendRequestSent
+
+        case Failure(error) =>
+          log.error(error, "Couldn't remove Friend !!")
+        //self ! Simulate//#
+      }
 
   }
 
@@ -514,6 +586,7 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
 
       }
 
+    //#Works
     case "page" =>
 
       val uri = Uri("http://localhost:8080/page/"+pageId.toString(16)) withQuery(F_User.ownerQuery -> user_ME.userID.toString(16))
@@ -577,6 +650,7 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
         //self ! Simulate//#
       }
 
+    //#Works
     case "picture" =>
 
       val uri = Uri("http://localhost:8080/picture/"+picId.toString(16)) withQuery(F_User.ownerQuery -> user_ME.userID.toString(16))
@@ -743,33 +817,51 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
       authRequest
 
     case Authenticated =>
-      getRequest(profileType)
+      getRequest(profileType,profileId = user_ME.profileID)
 
     case ProfileRetrieved => //Put any test request under this case and steer match forward as per requirement
-       //putRequest(picType, aPic=pic_ME.copy(ownerID=user_ME.userID,containingAlbum=profile_ME.defaultAlbum))
-       putRequest(pageType, aPage= page_ME.copy(ownerID=user_ME.userID))
-       //putRequest(postType, aPost= post_ME.copy(creator=user_ME.userID,locationType="profile", location=user_ME.profileID))
+        //putRequest(picType, aPic=pic_ME.copy(ownerID=user_ME.userID,containingAlbum=profile_ME.defaultAlbum))
+       //putRequest(pageType, aPage= page_ME.copy(ownerID=user_ME.userID))
+       // putRequest(postType, aPost= post_ME.copy(creator=user_ME.userID,locationType="profile", location=user_ME.profileID))
        //putRequest(albumType, aAlbum=album_ME.copy(ownerID=user_ME.userID))
+        Thread.sleep(2000)
+      getRequest(getUserList)   //1. get all user list
 
+    case UserListRetrieved =>     //2. get user info of friend
+      if(allUsers.length>1) {
+        var i = 0
+        while(allUsers(i) == user_ME.userID){
+          i += 1
+        }
+        getRequest(friendUserInfo, userId = allUsers(i))
+      }
+
+    case FriendUserInfoRetrieved =>     //3. send friend request
+      postRequest(friendRequest)
+
+    case FriendRequestSent =>
+      log.info("============>>>>>>>>>>>>>>> Friend Request Sent successfully !!")
+/*
     case PictureUploaded =>
       log.info("============>>>>>>>>>>>>>>> Picture upload successful !!")
-      deleteRequest(picType, picId = myPics.head)
-      getRequest(picType, picId =myPics.head)
-      //postRequest(picType, aPic= pic_ME.copy(name="new name", ownerID=user_ME.userID, pictureID=myPics.head))
+       //deleteRequest(picType, picId = myPics.head)
+       getRequest(picType, picId =myPics.head)
+       //postRequest(picType, aPic= pic_ME.copy(name="new name", ownerID=user_ME.userID, pictureID=myPics.head))
 
 
     case PageCreated =>
       log.info("============>>>>>>>>>>>>>>> Page creation successful !!")
        //deleteRequest(pageType, pageId=myPages.head)
-      //postRequest(pageType, aPage= page_ME.copy(name="new name", ownerID=user_ME.userID,ID=myPages.head))
+       //postRequest(pageType, aPage= page_ME.copy(name="new name", ownerID=user_ME.userID,ID=myPages.head))
       //deleteRequest(pageType, pageId=myPages.head)
       //postRequest(pageType, aPage= page_ME.copy(name="new name", ownerID=user_ME.userID,ID=myPages.head))
       //getRequest(pageType,pageId=myPages.head)
+      //putRequest(postType, aPost= post_ME.copy(creator=user_ME.userID,locationType="page", location=myPages.head))
       putRequest(postType, aPost= post_ME.copy(creator=user_ME.userID,locationType="page", location=myPages.head))
 
     case PageRetrieved =>
       log.info("============>>>>>>>>>>>>>>> Page Retrival successful !!")
-      //postRequest(pageType, aPage= page_ME.copy(name="new name", ownerID=user_ME.userID,ID=myPages.head))
+      postRequest(pageType, aPage= page_ME.copy(name="new name", ownerID=user_ME.userID,ID=myPages.head))
 
     case PageUpdated =>
       log.info("============>>>>>>>>>>>>>>> Page updation successful !!")
@@ -777,6 +869,18 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
 
     case PostCreated =>
       log.info("============>>>>>>>>>>>>>>> Post creation successful !!")
+      postRequest(postType, aPost = post_ME.copy(contents ="new changes", creator=user_ME.userID,locationType="profile", location=user_ME.profileID,postID=myPosts.head))
+
+    case PostUpdated =>
+      log.info("============>>>>>>>>>>>>>>> Post updation successful !!")
+      getRequest(postType, postId= myPosts.head)
+
+    case PostRetrieved =>
+      log.info("============>>>>>>>>>>>>>>> Post retrieval successful !!")
+      deleteRequest(postType, postId= myPosts.head)
+
+    case PostDeleted =>
+      log.info("============>>>>>>>>>>>>>>> Post deletion successful !!")
 
     case AlbumCreated =>
       log.info("============>>>>>>>>>>>>>>> Album creation successful !!")
@@ -792,6 +896,7 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
 
     case PictureRetrieved =>
       log.info("============>>>>>>>>>>>>>>> picture retrieval successful !!")
+      postRequest(picType, aPic = pic_ME.copy(name="new name", ownerID=user_ME.userID,pictureID = myPics.head, containingAlbum = profile_ME.defaultAlbum)) //TODO change saving to save not just IDs but entier object
 
     case PictureUpdated =>
       log.info("============>>>>>>>>>>>>>>> Picture update successful !!")
@@ -799,7 +904,7 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
 
     case PictureDeleted =>
       log.info("============>>>>>>>>>>>>>>> Picture delete successful !!")
-
+*/
       //Test code block ends
 
 

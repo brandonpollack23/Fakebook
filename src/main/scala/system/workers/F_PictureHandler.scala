@@ -93,7 +93,7 @@ class F_PictureHandler(backbone: ActorRef) extends Actor with ActorLogging {
           case F_Picture.`nameField` => updateCurrentPicture(picture.copy(name = currentField._2.convertTo[Array[Byte]]), fields.tail)
           case F_Picture.`descriptionField` => updateCurrentPicture(picture.copy(description = currentField._2.convertTo[Array[Byte]]), fields.tail)
           case F_Picture.`albumField` =>
-            val newAlbumID = BigInt(currentField._2.toString(), 16)
+            val newAlbumID = BigInt(currentField._2.convertTo[String], 16)
             val oldAlbumID = picture.containingAlbum
             val oldAlbum = albums.get(oldAlbumID).get
             albums.get(newAlbumID) match {

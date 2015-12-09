@@ -71,8 +71,13 @@ object CaseObjects {
   case object AlbumDeleted
 
 
+  case object UserListRetrieved
+
+  case object FriendUserInfoRetrieved
+
   case object FriendRequestSent
 
   case object FriendRemoved
+
 
 }

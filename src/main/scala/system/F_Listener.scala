@@ -61,7 +61,8 @@ trait F_ListenerService extends HttpService {
               detach() {
                 extractRequestContext { request =>
                   try {
-                    complete(Await.result((backbone ? GetUserList).mapTo[String], timeout))
+                    val list = Await.result((backbone ? GetUserList).mapTo[String], timeout)
+                    complete(200, list)
                   } catch {
                     case ex: TimeoutException =>
                       complete(500, "Could not retrieve user list!  Server Timed out")
