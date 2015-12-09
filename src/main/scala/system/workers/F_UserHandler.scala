@@ -233,8 +233,9 @@ class F_UserHandler(backbone: ActorRef) extends Actor with ActorLogging {
         case (Some(removerS), Some(removedS)) =>
           val remover = removerS.userE
           val removed = removedS.userE
-          users.put(removerID, removerS.copy(userE = remover.copy(friends = remover.friends.filter(_ != removedID))))
-          users.put(removedID, removedS.copy(userE = removed.copy(friends = removed.friends.filter(_ != removerID))))
+          users.put(removerID, removerS.copy(userE = remover.copy(friends = remover.friends.filter(_._1 != removedID))))
+          users.put(removedID, removedS.copy(userE = removed.copy(friends = removed.friends.filter(_._1 != removerID))))
+          sender ! "Friend with ID " + removedID.toString(16) + " removed"
         case (Some(remover), None) =>
           sender ! noSuchUserFailure(removedID)
         case (None, Some(removed)) =>

@@ -904,7 +904,7 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
       postRequest(handleRequest)
 
     case FriendRequestHandled =>
-      postRequest(removeFriend )
+      postRequest(removeFriend)
 
 /*
     case PictureUploaded =>
