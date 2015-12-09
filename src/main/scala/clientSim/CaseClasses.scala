@@ -77,6 +77,8 @@ object CaseObjects {
 
   case object FriendRequestSent
 
+  case object HandleFriendRequest
+
   case object FriendRemoved
 
 

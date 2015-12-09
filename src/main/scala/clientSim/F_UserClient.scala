@@ -39,6 +39,7 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
   val picType       : String = "picture"
   val albumType     : String = "album"
   val friendRequest : String = "friendRequest"
+  val handleRequest  : String = "handleRequest"
   val removeFriend  : String = "removeFriend"
   val getUserList   : String = "getUserList"
   val friendUserInfo: String = "friendUserInfo"
@@ -254,7 +255,11 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
         case Success(jsonRef) =>
           log.info("==============>>>>>>>> User Data successfully Retrieved!!")
           //self ! Simulate//#
-          self ! UserDataRetrieved
+          user_ME = jsonRef.parseJson.convertTo[F_UserE].decryptUserE(aesKey, privateKey)
+          if(user_ME.friendRequests.isEmpty)
+            self ! UserDataRetrieved
+          else
+            self ! HandleFriendRequest
 
         case Failure(error) =>
           log.error(error, "Couldn't Retrieve User Data !!")
@@ -528,7 +533,7 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
       }
 
     case "friendRequest" =>             //TODO check the query and entity correctness
-      val uri = Uri("http://localhost:8080/users/request"+user_ME.userID.toString(16)) withQuery(F_User.ownerQuery -> friendUser.userID.toString(16))
+      val uri = Uri("http://localhost:8080/users/request/"+user_ME.userID.toString(16)) withQuery(F_User.ownerQuery -> user_ME.userID.toString(16) ,F_User.friendRequestString -> friendUser.userID.toString(16))
 
       val pipeline = sendReceive ~> unmarshal[String]
       val responseFuture = pipeline {Post(uri, HttpEntity(MediaTypes.`application/json`, aesKey.toByteArray.encryptRSA(friendUser.identityKey).toJson.compactPrint)) withHeaders myAuthCookie}
@@ -545,8 +550,26 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
         //self ! Simulate//#
       }
 
+    case "handleRequest" =>
+      val uri = Uri("http://localhost:8080/users/request/handle"+user_ME.userID.toString(16)) withQuery(F_User.ownerQuery -> user_ME.userID.toString(16) ,F_User.friendRequestString -> user_ME.friendRequests.head._1.toString(16), F_User.acceptFriendString -> true.toString)
+
+      val pipeline = sendReceive ~> unmarshal[String]
+      val responseFuture = pipeline {Post(uri, HttpEntity(MediaTypes.`application/json`, aesKey.toByteArray.encryptRSA().toJson.compactPrint)) withHeaders myAuthCookie}
+
+      responseFuture onComplete {
+
+        case Success(jsonRef) =>
+          log.info("=======>>>>  Friend request handled !!")
+          //self ! Simulate//#
+
+
+        case Failure(error) =>
+          log.error(error, "Couldn't handle Friend request !!")
+        //self ! Simulate//#
+      }
+
     case "removeFriend" =>
-      val uri = Uri("http://localhost:8080/users/request"+user_ME.userID.toString(16)) withQuery(F_User.ownerQuery -> friendUser.userID.toString(16))
+      val uri = Uri("http://localhost:8080/users/request/remove"+user_ME.userID.toString(16)) withQuery(F_User.ownerQuery -> friendUser.userID.toString(16))
 
       val pipeline = sendReceive ~> unmarshal[String]
       val responseFuture = pipeline {Post(uri) withHeaders myAuthCookie}
@@ -828,6 +851,7 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
       getRequest(getUserList)   //1. get all user list
 
     case UserListRetrieved =>     //2. get user info of friend
+      log.info("============>>>>>>>>>>>>>>>User List retrieved successful !!")
       if(allUsers.length>1) {
         var i = 0
         while(allUsers(i) == user_ME.userID){
@@ -837,10 +861,18 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
       }
 
     case FriendUserInfoRetrieved =>     //3. send friend request
+      log.info("============>>>>>>>>>>>>>>> Friend User info retrieved successful !!")
       postRequest(friendRequest)
 
     case FriendRequestSent =>
       log.info("============>>>>>>>>>>>>>>> Friend Request Sent successfully !!")
+      getRequest(userType, userId = user_ME.userID)
+
+    case HandleFriendRequest =>
+      postRequest(handleRequest)
+
+
+
 /*
     case PictureUploaded =>
       log.info("============>>>>>>>>>>>>>>> Picture upload successful !!")
