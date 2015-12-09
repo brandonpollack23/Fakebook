@@ -16,6 +16,8 @@ import util.MyJsonProtocol._
 import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.{Failure, Success}
+import scala.concurrent.duration._
+import language.postfixOps
 
 import graphnodes.F_User
 
@@ -570,11 +572,17 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
         //self ! Simulate//#
       }
 
-    case "handleRequest" =>
-      val uri = Uri("http://localhost:8080/users/request/handle"+user_ME.userID.toString(16)) withQuery(F_User.ownerQuery -> user_ME.userID.toString(16) ,F_User.friendRequestString -> user_ME.friendRequests.head._1.toString(16), F_User.acceptFriendString -> true.toString)
+    case "handleRequest" => //TODO do for all friend requests in the list, have a probability of not accepting, check if friendRequests.isEmpty before doing anything
+      val requestingFriend = user_ME.friendRequests.head
+      val friendUri = Uri("http://localhost:8080/users/" + requestingFriend._1.toString(16))
+
+      val getFriendPipeline = sendReceive ~> unmarshal[String]
+      val requestingFriendObjectIdentityKey = Await.result(getFriendPipeline(Get(friendUri)), 5 seconds).parseJson.convertTo[F_UserE].identityKey
+
+      val uri = Uri("http://localhost:8080/users/request/handle/"+user_ME.userID.toString(16)) withQuery(F_User.ownerQuery -> user_ME.userID.toString(16) ,F_User.friendRequestString -> user_ME.friendRequests.head._1.toString(16), F_User.acceptFriendString -> true.toString)
 
       val pipeline = sendReceive ~> unmarshal[String]
-      val responseFuture = pipeline {Post(uri, HttpEntity(MediaTypes.`application/json`, aesKey.toByteArray.encryptRSA(friendUser.identityKey).toJson.compactPrint)) withHeaders myAuthCookie}
+      val responseFuture = pipeline {Post(uri, HttpEntity(MediaTypes.`application/json`, aesKey.toByteArray.encryptRSA(requestingFriendObjectIdentityKey).toJson.compactPrint)) withHeaders myAuthCookie}
 
       responseFuture onComplete {
 
