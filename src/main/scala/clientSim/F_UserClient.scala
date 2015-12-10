@@ -22,7 +22,7 @@ import util.Crypto._
 
 
 
-class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
+class F_UserClient(clientRest: Int) extends Actor with ActorLogging {
 
 /*
  * Code block 1
@@ -78,7 +78,6 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
   var myAuthCookie: HttpHeader = Cookie(HttpCookie(F_User.authenticationCookieName, content = "0"))
 
 
-  //TODO friend request code
 
 
   //#Works
@@ -217,7 +216,7 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
 
         case Success(jsonRef) =>
           log.info("uploadPicture successful!!")
-          myPics ::= jsonRef.parseJson.convertTo[F_PictureE].decryptPictureE(aesKey) //TODO changed to hold picture
+          myPics ::= jsonRef.parseJson.convertTo[F_PictureE].decryptPictureE(aesKey)
           self ! Simulate//#
           //self ! PictureUploaded
 
@@ -551,7 +550,7 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
       }
 
     //#Works
-    case "friendRequest" =>             //TODO check the query and entity correctness
+    case "friendRequest" =>
       val uri = Uri("http://localhost:8080/users/request/"+user_ME.userID.toString(16)) withQuery(F_User.ownerQuery -> user_ME.userID.toString(16) ,F_User.friendRequestString -> friendUser.userID.toString(16))
 
       val pipeline = sendReceive ~> unmarshal[String]
@@ -570,7 +569,7 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
       }
 
     //#works
-    case "handleRequest" => //TODO do for all friend requests in the list, have a probability of not accepting, check if friendRequests.isEmpty before doing anything
+    case "handleRequest" => // do for all friend requests in the list, have a probability of not accepting, check if friendRequests.isEmpty before doing anything
       val requestingFriend = user_ME.friendRequests.head
       val friendUri = Uri("http://localhost:8080/users/" + requestingFriend._1.toString(16))
 
@@ -596,7 +595,7 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
 
     //#Works
     case "removeFriend" =>
-      val uri = Uri("http://localhost:8080/users/remove/"+user_ME.userID.toString(16)) withQuery(F_User.ownerQuery -> user_ME.userID.toString(16), F_User.friendRemoveString -> user_ME.friendRequests.head._1.toString(16))
+      val uri = Uri("http://localhost:8080/users/remove/"+user_ME.userID.toString(16)) withQuery(F_User.ownerQuery -> user_ME.userID.toString(16), F_User.friendRemoveString -> user_ME.friends.head._1.toString(16))
 
       val pipeline = sendReceive ~> unmarshal[String]
       val responseFuture = pipeline {Post(uri) withHeaders myAuthCookie}
@@ -604,7 +603,7 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
       responseFuture onComplete {
 
         case Success(jsonRef) =>
-          log.info("===>>>   Friend remove successful !!")
+          log.info("===>>>   Friend removed successfully !!")
           self ! Simulate//#
 
 
@@ -761,7 +760,7 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
           self ! Simulate
 
         case UserListRetrieved =>
-          log.info("============>>>>>>>>>>>>>>>User List retrieved successful !!")
+          log.info("============>>>>>>>>>>>>>>> User List retrieved successful !!")
           if(allUsers.length>1) {
             var i = Random.nextInt(allUsers.length)
             while(allUsers(i) == user_ME.userID){
@@ -780,6 +779,7 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
 
 
         case Simulate =>
+          Thread.sleep(clientRest)
 
           val x = Random.nextInt(100)
           //println("x= ------>  "+x)
@@ -895,7 +895,7 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
           {
             val y = Random.nextInt(100)
             if (y <= 25)
-              postRequest(userType, user_ME.copy(firstName="new name",age=26))
+              postRequest(userType, aUser = user_ME.copy(firstName="new name",age=26))
             if (y > 25 && y< 50)
               getRequest(userType, userId= user_ME.userID)
             if(y>=50 && y< 75)
@@ -946,9 +946,9 @@ class F_UserClient(clientNumber: Int) extends Actor with ActorLogging {
             }
             else{
             //remove some friend
-             // if(user_ME.friendRequests.nonEmpty)
-             //   postRequest(removeFriend)
-             // else
+              if(user_ME.friends.nonEmpty)
+                postRequest(removeFriend)
+              else
                 self ! Simulate
             }
           }

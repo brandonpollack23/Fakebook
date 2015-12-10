@@ -17,15 +17,23 @@ object TestMain {
     val handler: ActorRef = system.actorOf(F_Server.props, "handler")
     IO(Http) ! Http.Bind(handler, "localhost", port = 8080)
 
+    val totalUsers = 100
+
+    val userRef: ActorRef = system.actorOf(Props(new F_MasterClient(totalUsers)), "MasterClientActor")
+    userRef ! Begin
+
+
+
+
+    /*
     var i = 0
 
-    while (i < 5) {
+    while (i < 10) {
     var userRef: ActorRef = system.actorOf(Props(new F_UserClient(i)), "UserClientActor" + i)
     userRef ! Begin
       i += 1
   }
 
-    /*
     val userLoad :Int= 100
     val heavyPercent:Double = 0.05
     val lightPercent:Double = 0.35
