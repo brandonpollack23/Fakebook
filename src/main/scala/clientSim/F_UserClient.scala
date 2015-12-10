@@ -119,12 +119,12 @@ class F_UserClient(clientRest: Int) extends Actor with ActorLogging {
 
       val pipeline = sendReceive ~> unmarshal[String]
       val responseFuture = pipeline {Put(uri, HttpEntity(MediaTypes.`application/json`, aUser.encryptUser(aesKey).toJson.compactPrint))}
-      log.info("==============>>>>>>>> create : user")
+      //log.info("==============>>>>>>>> create : user")
       responseFuture onComplete {
 
         case Success(jsonRef) =>
           user_ME = jsonRef.parseJson.convertTo[F_UserE].decryptUserE(aesKey,privateKey)
-          log.info("==============>>>>>>>> user profile created")
+          //log.info("==============>>>>>>>> user profile created")
           self ! UserCreated
 
         case Failure(error) =>
@@ -138,11 +138,11 @@ class F_UserClient(clientRest: Int) extends Actor with ActorLogging {
 
       val pipeline = sendReceive ~> unmarshal[String]
       val responseFuture = pipeline {Put(uri, HttpEntity(MediaTypes.`application/json`, aPage.toJson.compactPrint)) withHeaders myAuthCookie}
-      log.info("==============>>>>>>>> create : page")
+      //log.info("==============>>>>>>>> create : page")
       responseFuture onComplete {
 
         case Success(jsonRef) =>
-          log.info("==============>>>>>>>> Page creation successful!!")
+          //log.info("==============>>>>>>>> Page creation successful!!")
           myPages ::= jsonRef.parseJson.convertTo[F_Page].ID
           self ! Simulate//#
           //self ! PageCreated
@@ -157,7 +157,7 @@ class F_UserClient(clientRest: Int) extends Actor with ActorLogging {
       val location = aPost.locationType
 
       val uri = Uri("http://localhost:8080/post") withQuery(F_User.ownerQuery -> user_ME.userID.toString(16), F_Post.locationTypeString -> location)
-      log.info("==============>>>>>>>> create : post")
+      //log.info("==============>>>>>>>> create : post")
       val pipeline = sendReceive
       val responseFuture = if(location == F_Post.locationProfile) pipeline {Put(uri, HttpEntity(MediaTypes.`application/json`, aPost.encryptPost(aesKey).toJson.compactPrint)) withHeaders myAuthCookie}
                             else pipeline {Put(uri, HttpEntity(MediaTypes.`application/json`, aPost.toJson.compactPrint)) withHeaders myAuthCookie}
@@ -165,7 +165,7 @@ class F_UserClient(clientRest: Int) extends Actor with ActorLogging {
       responseFuture onComplete {
 
         case Success(response) =>
-          log.info("==============>>>>>>>> createPost successful!!")
+          //log.info("==============>>>>>>>> createPost successful!!")
           val temp = if(location == F_Post.locationProfile) response.entity.asString.parseJson.convertTo[F_PostE].decryptPost(aesKey)
                                   else response.entity.asString.parseJson.convertTo[F_Post]
           myPosts ::= temp
@@ -189,11 +189,11 @@ class F_UserClient(clientRest: Int) extends Actor with ActorLogging {
 
       val pipeline = sendReceive ~> unmarshal[String]
       val responseFuture = pipeline {Put(uri, HttpEntity(MediaTypes.`application/json`, aAlbum.encryptAlbum(aesKey).toJson.compactPrint)) withHeaders myAuthCookie}
-      log.info("==============>>>>>>>> create : album")
+      //log.info("==============>>>>>>>> create : album")
       responseFuture onComplete {
 
         case Success(jsonRef) =>
-          log.info("============>>>>>>>>>>> Album successfully Created !!")
+          //log.info("============>>>>>>>>>>> Album successfully Created !!")
           myAlbums ::= jsonRef.parseJson.convertTo[F_AlbumE].decryptAlbumE(aesKey).id
           self ! Simulate//#
           //self ! AlbumCreated
@@ -211,11 +211,11 @@ class F_UserClient(clientRest: Int) extends Actor with ActorLogging {
       val pipeline = sendReceive ~> unmarshal[String]
       val picTrans:F_PictureTransmit = F_PictureTransmit(aPic.encryptPicture(aesKey), Array[Byte](1,2,3))
       val responseFuture = pipeline {Put(uri, HttpEntity(MediaTypes.`application/json`, picTrans.toJson.compactPrint)) withHeaders myAuthCookie}
-      log.info("==============>>>>>>>> create : picture")
+      //log.info("==============>>>>>>>> create : picture")
       responseFuture onComplete {
 
         case Success(jsonRef) =>
-          log.info("uploadPicture successful!!")
+          //log.info("uploadPicture successful!!")
           myPics ::= jsonRef.parseJson.convertTo[F_PictureE].decryptPictureE(aesKey)
           self ! Simulate//#
           //self ! PictureUploaded
@@ -237,10 +237,10 @@ class F_UserClient(clientRest: Int) extends Actor with ActorLogging {
 
       val pipeline = sendReceive ~> unmarshal[String]
       val responseFuture = pipeline {Get(uri)}
-      log.info("==============>>>>>>>> get : user")
+      //log.info("==============>>>>>>>> get : user")
       responseFuture onComplete {
         case Success(jsonRef) =>
-          log.info("==============>>>>>>>> User Data successfully Retrieved!!")
+          //log.info("==============>>>>>>>> User Data successfully Retrieved!!")
           user_ME = jsonRef.parseJson.convertTo[F_UserE].decryptUserE(aesKey, privateKey)
           if(user_ME.friendRequests.isEmpty)
             self ! Simulate
@@ -260,12 +260,12 @@ class F_UserClient(clientRest: Int) extends Actor with ActorLogging {
 
       val pipeline = sendReceive ~> unmarshal[String]
       val responseFuture = pipeline {Get(uri)}
-      log.info("==============>>>>>>>> get : profile")
+      //log.info("==============>>>>>>>> get : profile")
       responseFuture onComplete {
 
         case Success(jsonRef) =>
           profile_ME = jsonRef.parseJson.convertTo[F_UserProfileE].decryptUserProfileE(aesKey)
-          log.info("==============>>>>>>>> user Profile Retrieved successfully")
+          //log.info("==============>>>>>>>> user Profile Retrieved successfully")
           //self ! ProfileRetrieved
           self ! Simulate
 
@@ -281,11 +281,11 @@ class F_UserClient(clientRest: Int) extends Actor with ActorLogging {
 
       val pipeline = sendReceive ~> unmarshal[String]
       val responseFuture = pipeline {Get(uri)}
-      log.info("==============>>>>>>>> get : page")
+      //log.info("==============>>>>>>>> get : page")
       responseFuture onComplete {
 
         case Success(jsonRef) =>
-          log.info("Page Data successfully Retrieved !!")
+          //log.info("Page Data successfully Retrieved !!")
           self ! Simulate//#
           //self ! PageRetrieved
 
@@ -301,11 +301,11 @@ class F_UserClient(clientRest: Int) extends Actor with ActorLogging {
 
       val pipeline = sendReceive ~> unmarshal[String]
       val responseFuture = pipeline {Get(uri)}
-      log.info("==============>>>>>>>> get : post")
+      //log.info("==============>>>>>>>> get : post")
       responseFuture onComplete {
 
         case Success(jsonRef) =>
-          log.info("==============>>>>>>>> Post successfully Retrieved !!")
+          //log.info("==============>>>>>>>> Post successfully Retrieved !!")
           self ! Simulate//#
           //self ! PostRetrieved
 
@@ -321,11 +321,11 @@ class F_UserClient(clientRest: Int) extends Actor with ActorLogging {
 
       val pipeline = sendReceive ~> unmarshal[String]
       val responseFuture = pipeline {Get(uri)}
-      log.info("==============>>>>>>>> get : album")
+      //log.info("==============>>>>>>>> get : album")
       responseFuture onComplete {
 
         case Success(jsonRef) =>
-          log.info("Album data successfully Retrieved !!")
+          //log.info("Album data successfully Retrieved !!")
           self ! Simulate//#
           //self ! AlbumRetrieved
 
@@ -341,11 +341,11 @@ class F_UserClient(clientRest: Int) extends Actor with ActorLogging {
 
       val pipeline = sendReceive ~> unmarshal[String]
       val responseFuture = pipeline {Get(uri)}
-      log.info("==============>>>>>>>> get : picture")
+      //log.info("==============>>>>>>>> get : picture")
       responseFuture onComplete {
 
         case Success(jsonRef) =>
-          log.info("get Picture Data successful!!")
+          //log.info("get Picture Data successful!!")
           self ! Simulate//#
           //self ! PictureRetrieved
 
@@ -364,7 +364,7 @@ class F_UserClient(clientRest: Int) extends Actor with ActorLogging {
       responseFuture onComplete {
 
         case Success(jsonRef) =>
-          log.info("Received List of all users !!")
+          //log.info("Received List of all users !!")
           allUsers = jsonRef.parseJson.convertTo[List[BigInt]]
           self ! UserListRetrieved
         //self ! Simulate//#
@@ -385,7 +385,7 @@ class F_UserClient(clientRest: Int) extends Actor with ActorLogging {
 
       responseFuture onComplete {
         case Success(jsonRef) =>
-          log.info("==============>>>>>>>> User Data successfully Retrieved!!")
+          //log.info("==============>>>>>>>> User Data successfully Retrieved!!")
           friendUser = jsonRef.parseJson.convertTo[F_UserE]
           //self ! Simulate//#
           self ! FriendUserInfoRetrieved
@@ -405,7 +405,7 @@ class F_UserClient(clientRest: Int) extends Actor with ActorLogging {
 
       responseFuture onComplete {
         case Success(jsonRef) =>
-          log.info("==============>>>>>>>> Friend request sender data successfully Retrieved!!")
+          //log.info("==============>>>>>>>> Friend request sender data successfully Retrieved!!")
           friendUser = jsonRef.parseJson.convertTo[F_UserE]
           //self ! Simulate//#
           self ! FriendRequesterInfoRetrieved
@@ -427,11 +427,11 @@ class F_UserClient(clientRest: Int) extends Actor with ActorLogging {
 
       val pipeline = sendReceive ~> unmarshal[String]
       val responseFuture = pipeline {Post(uri, HttpEntity(MediaTypes.`application/json`, aUser.encryptUser(aesKey).toJson.compactPrint)) withHeaders myAuthCookie}
-      log.info("==============>>>>>>>> post : user")
+      //log.info("==============>>>>>>>> post : user")
       responseFuture onComplete {
 
         case Success(jsonRef) =>
-          log.info("updateUserData successful!!")
+          //log.info("updateUserData successful!!")
           user_ME = jsonRef.parseJson.convertTo[F_UserE].decryptUserE(aesKey, privateKey)
           self ! Simulate//#
           //self ! UserUpdated
@@ -448,11 +448,11 @@ class F_UserClient(clientRest: Int) extends Actor with ActorLogging {
 
       val pipeline = sendReceive ~> unmarshal[String]
       val responseFuture = pipeline {Post(uri, HttpEntity(MediaTypes.`application/json`, aProfile.encryptUserProfile(aesKey).toJson.compactPrint)) withHeaders myAuthCookie}
-      log.info("==============>>>>>>>> post : profile")
+      //log.info("==============>>>>>>>> post : profile")
       responseFuture onComplete {
 
         case Success(jsonRef) =>
-          log.info("updateUserData successful!!")
+          //log.info("updateUserData successful!!")
           profile_ME = jsonRef.parseJson.convertTo[F_UserProfileE].decryptUserProfileE(aesKey)
           self ! Simulate//#
           //self ! ProfileUpdated
@@ -469,11 +469,11 @@ class F_UserClient(clientRest: Int) extends Actor with ActorLogging {
 
       val pipeline = sendReceive ~> unmarshal[String]
       val responseFuture = pipeline {Post(uri, HttpEntity(MediaTypes.`application/json`, aPage.toJson.compactPrint)) withHeaders myAuthCookie}
-      log.info("==============>>>>>>>> post : page")
+      //log.info("==============>>>>>>>> post : page")
       responseFuture onComplete {
 
         case Success(jsonRef) =>
-          log.info(" ====>>>>>  Update Page Data successful !!")
+          //log.info(" ====>>>>>  Update Page Data successful !!")
           self ! Simulate//#
           //self ! PageUpdated
 
@@ -487,7 +487,7 @@ class F_UserClient(clientRest: Int) extends Actor with ActorLogging {
       val location = aPost.locationType
 
       val uri = Uri("http://localhost:8080/post/"+aPost.postID.toString(16)) withQuery(F_User.ownerQuery -> user_ME.userID.toString(16))
-      log.info("==============>>>>>>>> post : post")
+      //log.info("==============>>>>>>>> post : post")
       val pipeline = sendReceive
       val responseFuture = if(location == F_Post.locationProfile) pipeline {Post(uri, HttpEntity(MediaTypes.`application/json`, aPost.encryptPost(aesKey).toJson.compactPrint)) withHeaders myAuthCookie}
       else pipeline {Post(uri, HttpEntity(MediaTypes.`application/json`, aPost.toJson.compactPrint)) withHeaders myAuthCookie}
@@ -496,11 +496,11 @@ class F_UserClient(clientRest: Int) extends Actor with ActorLogging {
 
       val pipeline = sendReceive ~> unmarshal[String]
       val responseFuture = pipeline {Post(uri, HttpEntity(MediaTypes.`application/json`, aPost.encryptPost(aesKey).toJson.compactPrint)) withHeaders myAuthCookie}
-      log.info("==============>>>>>>>> post : post")
+      //log.info("==============>>>>>>>> post : post")
       */responseFuture onComplete {
 
         case Success(jsonRef) =>
-          log.info("===>>>>  update Post successful!!")
+          //log.info("===>>>>  update Post successful!!")
           self ! Simulate//#
           //self ! PostUpdated
 
@@ -516,11 +516,11 @@ class F_UserClient(clientRest: Int) extends Actor with ActorLogging {
 
       val pipeline = sendReceive ~> unmarshal[String]
       val responseFuture = pipeline {Post(uri, HttpEntity(MediaTypes.`application/json`, aAlbum.encryptAlbum(aesKey).toJson.compactPrint)) withHeaders myAuthCookie}
-      log.info("==============>>>>>>>> post : album")
+      //log.info("==============>>>>>>>> post : album")
       responseFuture onComplete {
 
         case Success(jsonRef) =>
-          log.info("updateAlbumData successful!!")
+          //log.info("updateAlbumData successful!!")
           self ! Simulate//#
           //self ! AlbumUpdated
 
@@ -536,11 +536,11 @@ class F_UserClient(clientRest: Int) extends Actor with ActorLogging {
 
       val pipeline = sendReceive ~> unmarshal[String]
       val responseFuture = pipeline {Post(uri, HttpEntity(MediaTypes.`application/json`, aPic.encryptPicture(aesKey).toJson.compactPrint)) withHeaders myAuthCookie}
-      log.info("==============>>>>>>>> post : picture")
+      //log.info("==============>>>>>>>> post : picture")
       responseFuture onComplete {
 
         case Success(jsonRef) =>
-          log.info("updatePictureData successful!!")
+          //log.info("updatePictureData successful!!")
           self ! Simulate//#
           //self ! PictureUpdated
 
@@ -559,7 +559,7 @@ class F_UserClient(clientRest: Int) extends Actor with ActorLogging {
       responseFuture onComplete {
 
         case Success(jsonRef) =>
-          log.info("Friend request sent !!")
+          //log.info("Friend request sent !!")
           //self ! Simulate//#
           self ! FriendRequestSent
 
@@ -584,7 +584,7 @@ class F_UserClient(clientRest: Int) extends Actor with ActorLogging {
       responseFuture onComplete {
 
         case Success(jsonRef) =>
-          log.info("=======>>>>  Friend request handled !!")
+          //log.info("=======>>>>  Friend request handled !!")
           //self ! Simulate//#
           self ! FriendRequestHandled
 
@@ -603,7 +603,7 @@ class F_UserClient(clientRest: Int) extends Actor with ActorLogging {
       responseFuture onComplete {
 
         case Success(jsonRef) =>
-          log.info("===>>>   Friend removed successfully !!")
+          //log.info("===>>>   Friend removed successfully !!")
           self ! Simulate//#
 
 
@@ -623,11 +623,11 @@ class F_UserClient(clientRest: Int) extends Actor with ActorLogging {
 
       val pipeline = sendReceive ~> unmarshal[String]
       val responseFuture = pipeline {Delete(uri) withHeaders myAuthCookie}
-      log.info("==============>>>>>>>> delete : user")
+      //log.info("==============>>>>>>>> delete : user")
       responseFuture onComplete {
 
         case Success(jsonRef) =>
-          log.info("User deleted successfully !!")
+          //log.info("User deleted successfully !!")
           self ! UserDeleted
 
         case Failure(error) =>
@@ -642,11 +642,11 @@ class F_UserClient(clientRest: Int) extends Actor with ActorLogging {
 
       val pipeline = sendReceive ~> unmarshal[String]
       val responseFuture = pipeline {Delete(uri) withHeaders myAuthCookie}
-      log.info("==============>>>>>>>> delete : page")
+      //log.info("==============>>>>>>>> delete : page")
       responseFuture onComplete {
 
         case Success(jsonRef) =>
-          log.info(" Delete Page successful !!")
+          //log.info(" Delete Page successful !!")
           myPages = myPages.filter(_!=pageId)
           self ! Simulate//#
           //self ! PageDeleted
@@ -663,11 +663,11 @@ class F_UserClient(clientRest: Int) extends Actor with ActorLogging {
 
       val pipeline = sendReceive ~> unmarshal[String]
       val responseFuture = pipeline {Delete(uri) withHeaders myAuthCookie}
-      log.info("==============>>>>>>>> delete : post")
+      //log.info("==============>>>>>>>> delete : post")
       responseFuture onComplete {
 
         case Success(jsonRef) =>
-          log.info("Delete Post successful !!")
+          //log.info("Delete Post successful !!")
           myPosts = myPosts.filter(_!=aPost)
           //myPagePosts = myPagePosts.filter(_!=postId)
           //myProfPosts = myProfPosts.filter(_!=postId)
@@ -686,11 +686,11 @@ class F_UserClient(clientRest: Int) extends Actor with ActorLogging {
 
       val pipeline = sendReceive ~> unmarshal[String]
       val responseFuture = pipeline {Delete(uri) withHeaders myAuthCookie}
-      log.info("==============>>>>>>>> delete : album")
+      //log.info("==============>>>>>>>> delete : album")
       responseFuture onComplete {
 
         case Success(jsonRef) =>
-          log.info("deleteAlbum successful!!")
+          //log.info("deleteAlbum successful!!")
           myAlbums = myAlbums.filter(_!=albumId)
           self ! Simulate//#
           //self ! AlbumDeleted
@@ -707,11 +707,11 @@ class F_UserClient(clientRest: Int) extends Actor with ActorLogging {
 
       val pipeline = sendReceive ~> unmarshal[String]
       val responseFuture = pipeline {Delete(uri) withHeaders myAuthCookie}
-      log.info("==============>>>>>>>> delete : picture")
+      //log.info("==============>>>>>>>> delete : picture")
       responseFuture onComplete {
 
         case Success(jsonRef) =>
-          log.info("delete Picture successful!!")
+          //log.info("delete Picture successful!!")
           myPics = myPics.filter(_!=aPic)
           self ! Simulate//#
           //self ! PictureDeleted
@@ -760,7 +760,7 @@ class F_UserClient(clientRest: Int) extends Actor with ActorLogging {
           self ! Simulate
 
         case UserListRetrieved =>
-          log.info("============>>>>>>>>>>>>>>> User List retrieved successful !!")
+          //log.info("============>>>>>>>>>>>>>>> User List retrieved successful !!")
           if(allUsers.length>1) {
             var i = Random.nextInt(allUsers.length)
             while(allUsers(i) == user_ME.userID){
@@ -770,11 +770,11 @@ class F_UserClient(clientRest: Int) extends Actor with ActorLogging {
           }
 
         case FriendUserInfoRetrieved =>
-          log.info("============>>>>>>>>>>>>>>> Friend User info retrieved successful !!")
+          //log.info("============>>>>>>>>>>>>>>> Friend User info retrieved successful !!")
           postRequest(friendRequest)
 
         case FriendRequestSent =>
-          log.info("============>>>>>>>>>>>>>>> Friend Request Sent successfully !!")
+          //log.info("============>>>>>>>>>>>>>>> Friend Request Sent successfully !!")
           self ! Simulate
 
 
@@ -964,7 +964,7 @@ class F_UserClient(clientRest: Int) extends Actor with ActorLogging {
       putRequest(userType,user_ME)
 
     case UserCreated =>
-      log.info("============>>>>>>>>>>>>>>>User creation successful !!")
+      //log.info("============>>>>>>>>>>>>>>>User creation successful !!")
       authRequest
 
     case Authenticated =>
@@ -979,7 +979,7 @@ class F_UserClient(clientRest: Int) extends Actor with ActorLogging {
       getRequest(getUserList)   //1. get all user list
 
     case UserListRetrieved =>     //2. get user info of friend
-      log.info("============>>>>>>>>>>>>>>>User List retrieved successful !!")
+      //log.info("============>>>>>>>>>>>>>>>User List retrieved successful !!")
       if(allUsers.length>1) {
         var i = 0
         while(allUsers(i) == user_ME.userID){
@@ -989,11 +989,11 @@ class F_UserClient(clientRest: Int) extends Actor with ActorLogging {
       }
 
     case FriendUserInfoRetrieved =>     //3. send friend request
-      log.info("============>>>>>>>>>>>>>>> Friend User info retrieved successful !!")
+      //log.info("============>>>>>>>>>>>>>>> Friend User info retrieved successful !!")
       postRequest(friendRequest)
 
     case FriendRequestSent =>
-      log.info("============>>>>>>>>>>>>>>> Friend Request Sent successfully !!")
+      //log.info("============>>>>>>>>>>>>>>> Friend Request Sent successfully !!")
       getRequest(userType, userId = user_ME.userID)
 
     case HandleFriendRequest =>
@@ -1008,14 +1008,14 @@ class F_UserClient(clientRest: Int) extends Actor with ActorLogging {
 
 
     case PictureUploaded =>
-      log.info("============>>>>>>>>>>>>>>> Picture upload successful !!")
+      //log.info("============>>>>>>>>>>>>>>> Picture upload successful !!")
        //deleteRequest(picType, picId = myPics.head)
        getRequest(picType, picId =myPics.head)
        //postRequest(picType, aPic= pic_ME.copy(name="new name", ownerID=user_ME.userID, pictureID=myPics.head))
 
 
     case PageCreated =>
-      log.info("============>>>>>>>>>>>>>>> Page creation successful !!")
+      //log.info("============>>>>>>>>>>>>>>> Page creation successful !!")
        //deleteRequest(pageType, pageId=myPages.head)
        //postRequest(pageType, aPage= page_ME.copy(name="new name", ownerID=user_ME.userID,ID=myPages.head))
       //deleteRequest(pageType, pageId=myPages.head)
@@ -1025,50 +1025,50 @@ class F_UserClient(clientRest: Int) extends Actor with ActorLogging {
       putRequest(postType, aPost= post_ME.copy(creator=user_ME.userID,locationType="page", location=myPages.head))
 
     case PageRetrieved =>
-      log.info("============>>>>>>>>>>>>>>> Page Retrival successful !!")
+      //log.info("============>>>>>>>>>>>>>>> Page Retrival successful !!")
       postRequest(pageType, aPage= page_ME.copy(name="new name", ownerID=user_ME.userID,ID=myPages.head))
 
     case PageUpdated =>
-      log.info("============>>>>>>>>>>>>>>> Page updation successful !!")
+      //log.info("============>>>>>>>>>>>>>>> Page updation successful !!")
       deleteRequest(pageType, pageId=myPages.head)
 
     case PostCreated =>
-      log.info("============>>>>>>>>>>>>>>> Post creation successful !!")
+      //log.info("============>>>>>>>>>>>>>>> Post creation successful !!")
       postRequest(postType, aPost = post_ME.copy(contents ="new changes", creator=user_ME.userID,locationType="profile", location=user_ME.profileID,postID=myPosts.head))
 
     case PostUpdated =>
-      log.info("============>>>>>>>>>>>>>>> Post updation successful !!")
+      //log.info("============>>>>>>>>>>>>>>> Post updation successful !!")
       getRequest(postType, postId= myPosts.head)
 
     case PostRetrieved =>
-      log.info("============>>>>>>>>>>>>>>> Post retrieval successful !!")
+      //log.info("============>>>>>>>>>>>>>>> Post retrieval successful !!")
       deleteRequest(postType, postId= myPosts.head)
 
     case PostDeleted =>
-      log.info("============>>>>>>>>>>>>>>> Post deletion successful !!")
+      //log.info("============>>>>>>>>>>>>>>> Post deletion successful !!")
 
     case AlbumCreated =>
-      log.info("============>>>>>>>>>>>>>>> Album creation successful !!")
+      //log.info("============>>>>>>>>>>>>>>> Album creation successful !!")
       getRequest(albumType, albumId= myAlbums.head)
 
     case AlbumRetrieved =>
-      log.info("============>>>>>>>>>>>>>>> Album retrieval successful !!")
+      //log.info("============>>>>>>>>>>>>>>> Album retrieval successful !!")
       postRequest(albumType,  aAlbum= album_ME.copy(name="new name", ownerID=user_ME.userID, id=myAlbums.head))
 
     case AlbumUpdated =>
-      log.info("============>>>>>>>>>>>>>>> Album retrieval successful !!")
+      //log.info("============>>>>>>>>>>>>>>> Album retrieval successful !!")
       deleteRequest(albumType, albumId=myAlbums.head)
 
     case PictureRetrieved =>
-      log.info("============>>>>>>>>>>>>>>> picture retrieval successful !!")
+      //log.info("============>>>>>>>>>>>>>>> picture retrieval successful !!")
       postRequest(picType, aPic = pic_ME.copy(name="new name", ownerID=user_ME.userID,pictureID = myPics.head, containingAlbum = profile_ME.defaultAlbum)) //TODO change saving to save not just IDs but entier object
 
     case PictureUpdated =>
-      log.info("============>>>>>>>>>>>>>>> Picture update successful !!")
+      //log.info("============>>>>>>>>>>>>>>> Picture update successful !!")
       deleteRequest(picType,picId= myPics.head)
 
     case PictureDeleted =>
-      log.info("============>>>>>>>>>>>>>>> Picture delete successful !!")
+      //log.info("============>>>>>>>>>>>>>>> Picture delete successful !!")
 */
       //Test code block ends
 
