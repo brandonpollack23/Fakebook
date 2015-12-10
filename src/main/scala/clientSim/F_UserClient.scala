@@ -37,12 +37,15 @@ class F_UserClient(clientRest: Int) extends Actor with ActorLogging {
   val pageType      : String = "page"
   val picType       : String = "picture"
   val albumType     : String = "album"
+  val joinPage      : String = "joinPage"
   val friendRequest : String = "friendRequest"
-  val handleRequest  : String = "handleRequest"
+  val handleRequest : String = "handleRequest"
   val removeFriend  : String = "removeFriend"
   val getUserList   : String = "getUserList"
   val friendUserInfo: String = "friendUserInfo"
   val friendRequesterInfo :String = "friendRequesterInfo"
+
+
 
   //AES Encryption
   val kGen: KeyGenerator = KeyGenerator.getInstance("AES")
@@ -525,7 +528,7 @@ class F_UserClient(clientRest: Int) extends Actor with ActorLogging {
           //self ! AlbumUpdated
 
         case Failure(error) =>
-          log.error(error, "Couldn't run updateAlbumData :(")
+          log.error(error, "Couldn't run updateAlbumData !!")
           self ! Simulate//#
       }
 
@@ -545,7 +548,32 @@ class F_UserClient(clientRest: Int) extends Actor with ActorLogging {
           //self ! PictureUpdated
 
         case Failure(error) =>
-          log.error(error, "Couldn't run updatePictureData :(")
+          log.error(error, "Couldn't run updatePictureData !!")
+          self ! Simulate//#
+      }
+
+
+    case "joinPage" =>
+      var i=0
+      if(allUsers.nonEmpty && myPages.nonEmpty){
+        while(allUsers(i)==user_ME.userID)
+          i += 1
+      }
+
+      val uri = Uri("http://localhost:8080/page/join/"+aPage.ID.toString(16)) withQuery (F_User.ownerQuery -> user_ME.userID.toString(16), F_Page.newUserString -> allUsers(i).toString(16))
+
+      val pipeline = sendReceive ~> unmarshal[String]
+      val responseFuture = pipeline {Post(uri) withHeaders myAuthCookie}
+      //log.info("==============>>>>>>>> post : page")
+      responseFuture onComplete {
+
+        case Success(jsonRef) =>
+          //log.info(" ====>>>>>  Page Join successful !!")
+          self ! Simulate//#
+        //self ! PageJoined
+
+        case Failure(error) =>
+          log.error(error, "Couldn't Join Page !!")
           self ! Simulate//#
       }
 
@@ -696,7 +724,7 @@ class F_UserClient(clientRest: Int) extends Actor with ActorLogging {
           //self ! AlbumDeleted
 
         case Failure(error) =>
-          log.error(error, "Couldn't run deleteAlbum :(")
+          log.error(error, "Couldn't run deleteAlbum !!")
           self ! Simulate//#
       }
 
@@ -731,6 +759,7 @@ class F_UserClient(clientRest: Int) extends Actor with ActorLogging {
     //original Simulation block begins
 
         case Begin =>
+         // Thread.sleep(Random.nextInt(clientRest+10))
           putRequest(userType, user_ME)
 
         case UserCreated =>

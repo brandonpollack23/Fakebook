@@ -19,7 +19,7 @@ object TestMain {
 
 
 
-    val totalUsers = 100
+    val totalUsers = 50
 
 
 
