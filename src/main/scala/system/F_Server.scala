@@ -27,3 +27,7 @@ class F_Server extends Actor with ActorLogging {
 object F_Server {
   def props = Props[F_Server]
 }
+
+
+//TODO send everything to the server with a list of encrypted AES keys, these AES keys are specific to each element.
+// This list is a map of bigints to

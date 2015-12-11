@@ -18,9 +18,10 @@ case class F_Post(contents: String,
                    locationType: String, //either profile or page
                    location: BigInt,
                    dateOfCreation: Date,
+                   userAESKeyMap: Map[BigInt, Array[Byte]], //map of users allowed to see this to their aes key encrypted with their id key
                    postID: BigInt) extends F_PostEOrPost{
   def encryptPost(key: Key) = {
-    F_PostE(contents.getBytes.encryptAES(key), creator, locationType, location, dateOfCreation,
+    F_PostE(contents.getBytes.encryptAES(key), creator, locationType, location, dateOfCreation, userAESKeyMap,
       postID)
   }
 }
@@ -30,10 +31,11 @@ case class F_PostE(contents: Array[Byte],
                   locationType: String, //either profile or page
                   location: BigInt,
                   dateOfCreation: Date,
+                  userAESKeyMap: Map[BigInt, Array[Byte]],
                   postID: BigInt) extends F_PostEOrPost{
   def decryptPost(key: Key) = {
     F_Post(contents.decryptAES(key).byteArray2String, creator, locationType, location,
-      dateOfCreation, postID)
+      dateOfCreation, userAESKeyMap, postID)
   }
 }
 

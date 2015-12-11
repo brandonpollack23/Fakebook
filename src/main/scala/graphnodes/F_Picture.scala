@@ -9,10 +9,11 @@ case class F_Picture(name: String, description: String,
                       dateOfCreation: Date,
                       fileID: BigInt,
                       pictureID: BigInt,
+                      userAESKeyMap: Map[BigInt, Array[Byte]],
                       ownerID: BigInt) {
   def encryptPicture(key: Key) = {
     F_PictureE(name.getBytes.encryptAES(key), description.getBytes.encryptAES(key), containingAlbum,
-      dateOfCreation, fileID, pictureID, ownerID)
+      dateOfCreation, fileID, pictureID, userAESKeyMap, ownerID)
   }
 }
 
@@ -21,11 +22,12 @@ case class F_PictureE(name: Array[Byte], description: Array[Byte],
                      dateOfCreation: Date,
                      fileID: BigInt,
                      pictureID: BigInt,
+                     userAESKeyMap: Map[BigInt, Array[Byte]],
                      ownerID: BigInt) {
   def decryptPictureE(key: Key) = {
     F_Picture(name.decryptAES(key).byteArray2String, description.decryptAES(key).byteArray2String,
       containingAlbum, dateOfCreation,
-      fileID, pictureID, ownerID)
+      fileID, pictureID, userAESKeyMap, ownerID)
   }
 }
 
