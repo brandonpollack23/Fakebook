@@ -19,8 +19,8 @@ import language.postfixOps
 import scala.util.Random
 import graphnodes.F_User
 import util.Crypto._
-
-
+import scala.collection.mutable
+import scala.collection.immutable._
 
 class F_UserClient(clientRest: Int) extends Actor with ActorLogging {
 
@@ -64,9 +64,9 @@ class F_UserClient(clientRest: Int) extends Actor with ActorLogging {
   var user_ME    = F_User("Ali", "Gator", "Student at UF", 25, new Date(1989-1900,1,1), new Date(2015-1900,1,1), List[(BigInt, SecretKey)](), List[(BigInt, Array[Byte])](), 0, publicKey, 0)
   var profile_ME = F_UserProfile(List[BigInt](), new Date(2015-1900,1,1), 0, List[BigInt](), 0, "My Profile", 0, 0)
   var page_ME    = F_Page("Gator Times", "All about UF", new Date(2015-1900,1,1), List[BigInt](), List[BigInt](), 0, List[BigInt](), 0, 0, 0)
-  var post_ME   = F_Post("Some News", 0, "profile", 0, new Date(2015-1900,1,1), 0)
+  var post_ME   = F_Post("Some News", 0, "profile", 0, new Date(2015-1900,1,1), Map[BigInt, Array[Byte]](), 0)
   var album_ME :F_Album   = F_Album("My Album", "Vacations", new Date(2015-1900,1,1), false, 0, 0, List[BigInt]())
-  var pic_ME :F_Picture    = F_Picture("My Pic", "Holidays", 0, new Date(2015-1900,1,1), 0, 0, 0)
+  var pic_ME :F_Picture    = F_Picture("My Pic", "Holidays", 0, new Date(2015-1900,1,1), 0, 0, Map[BigInt,Array[Byte]](), 0)
   var friendUser : F_UserE = F_UserE(null,null,null,null,null,null,null,null,0,null,0)
 
   //Lists to record current status
@@ -77,9 +77,9 @@ class F_UserClient(clientRest: Int) extends Actor with ActorLogging {
   var myAlbums = List[BigInt]()
   var myPages  = List[BigInt]()
   var allUsers = List[BigInt]()
+  
 
   var myAuthCookie: HttpHeader = Cookie(HttpCookie(F_User.authenticationCookieName, content = "0"))
-
 
 
 
@@ -113,7 +113,7 @@ class F_UserClient(clientRest: Int) extends Actor with ActorLogging {
   }
 
 
-  def putRequest(reqType:String, aUser:F_User=null, aPage:F_Page=null, aPost:F_Post=null, aAlbum:F_Album=null, aPic:F_Picture=null) = reqType match{
+  def putRequest(reqType:String, aUser:F_User=null, aPage:F_Page=null, aPost:F_Post=post_ME, aAlbum:F_Album=null, aPic:F_Picture=pic_ME) = reqType match{
 
     //#Works
     case "user" =>
@@ -159,6 +159,18 @@ class F_UserClient(clientRest: Int) extends Actor with ActorLogging {
     case "post" =>
       val location = aPost.locationType
 
+ /*       //get aes key for this post
+        val Post_aesKey: SecretKey = kGen.generateKey
+        //get map of friends to share this with
+        val shareMap = scala.collection.mutable.Map[BigInt, PublicKey]()
+        shareMap = //fetch the map
+        //convert to map to pass into data structure
+        val sharedUserMap = scala.collection.mutable.Map[BigInt, Array[Byte]]()
+        //if(shareMap.contains(user_ME.friends.head._1))
+          sharedUserMap.put(user_ME.friends.head._1, Post_aesKey.toByteArray.encryptRSA(user_ME.friends.head._2))
+
+      //var aPost1 = aPost.copy(contents = "", userAESKeyMap = sharedUserMap)
+   */
       val uri = Uri("http://localhost:8080/post") withQuery(F_User.ownerQuery -> user_ME.userID.toString(16), F_Post.locationTypeString -> location)
       //log.info("==============>>>>>>>> create : post")
       val pipeline = sendReceive
@@ -818,11 +830,70 @@ class F_UserClient(clientRest: Int) extends Actor with ActorLogging {
             val y = Random.nextInt(100)
             //println("y=----->  "+y)
             if (y < 25) {
-              putRequest(postType, aPost = post_ME.copy(creator=user_ME.userID, locationType= "profile" ,location = user_ME.profileID))
+              //get aes key for this post
+              val Post_aesKey: SecretKey = kGen.generateKey
+
+              //get a user to share with and generate map of AES with his public key
+              val sharedUserMap = scala.collection.mutable.Map[BigInt, Array[Byte]]()
+              var shareWith = BigInt(0)
+              var aesEncrypted = Array[Byte]()
+              var friendPublicKey = publicKey
+
+              if(allUsers.length>1) {
+                shareWith = allUsers(Random.nextInt(allUsers.length))
+
+                val uri = Uri("http://localhost:8080/users/"+shareWith.toString(16))
+
+                val pipeline = sendReceive ~> unmarshal[String]
+                val responseFuture = pipeline {Get(uri)}
+                //log.info("==============>>>>>>>> get : user")
+                responseFuture onComplete {
+                  case Success(jsonRef) =>
+                    friendPublicKey = jsonRef.parseJson.convertTo[F_UserE].identityKey
+
+                  case Failure(error) =>
+                    log.error(error, "Couldn't Retrieve User Data !!")
+                }
+                aesEncrypted = Post_aesKey.toByteArray.encryptRSA(friendPublicKey)
+
+                sharedUserMap.put(shareWith, aesEncrypted)
+
+              }
+              putRequest(postType, aPost = post_ME.copy(creator=user_ME.userID, locationType= "profile" ,location = user_ME.profileID, userAESKeyMap = sharedUserMap.toMap))
             }
             if(y>=25 && y<50) {
-              if (myPages.nonEmpty)
-                putRequest(postType, aPost = post_ME.copy(creator=user_ME.userID, locationType="page", location= myPages.head))
+              if (myPages.nonEmpty) {
+                //get aes key for this post
+                val Post_aesKey: SecretKey = kGen.generateKey
+
+                //get a user to share with and generate map of AES with his public key
+                val sharedUserMap = scala.collection.mutable.Map[BigInt, Array[Byte]]()
+                var shareWith = BigInt(0)
+                var aesEncrypted = Array[Byte]()
+                var friendPublicKey = publicKey
+
+                if(allUsers.length>1) {
+                  shareWith = allUsers(Random.nextInt(allUsers.length))
+
+                  val uri = Uri("http://localhost:8080/users/"+shareWith.toString(16))
+
+                  val pipeline = sendReceive ~> unmarshal[String]
+                  val responseFuture = pipeline {Get(uri)}
+                  //log.info("==============>>>>>>>> get : user")
+                  responseFuture onComplete {
+                    case Success(jsonRef) =>
+                      friendPublicKey = jsonRef.parseJson.convertTo[F_UserE].identityKey
+
+                    case Failure(error) =>
+                      log.error(error, "Couldn't Retrieve User Data !!")
+                  }
+                  aesEncrypted = Post_aesKey.toByteArray.encryptRSA(friendPublicKey)
+
+                  sharedUserMap.put(shareWith, aesEncrypted)
+
+                }
+                putRequest(postType, aPost = post_ME.copy(creator = user_ME.userID, locationType = "page", location = myPages.head))
+              }
               else
                 self ! Simulate
             }
@@ -868,7 +939,36 @@ class F_UserClient(clientRest: Int) extends Actor with ActorLogging {
                // if(myAlbums.nonEmpty)
                 //  putRequest(picType, aPic = pic_ME.copy(containingAlbum=myAlbums.head, ownerID = user_ME.userID))
                 //else
-                  putRequest(picType, aPic = pic_ME.copy(containingAlbum=profile_ME.defaultAlbum, ownerID = user_ME.userID))
+               //get aes key for this post
+               val Post_aesKey: SecretKey = kGen.generateKey
+
+                //get a user to share with and generate map of AES with his public key
+                val sharedUserMap = scala.collection.mutable.Map[BigInt, Array[Byte]]()
+                var shareWith = BigInt(0)
+                var aesEncrypted = Array[Byte]()
+                var friendPublicKey = publicKey
+
+                if(allUsers.length>1) {
+                  shareWith = allUsers(Random.nextInt(allUsers.length))
+
+                  val uri = Uri("http://localhost:8080/users/"+shareWith.toString(16))
+
+                  val pipeline = sendReceive ~> unmarshal[String]
+                  val responseFuture = pipeline {Get(uri)}
+                  //log.info("==============>>>>>>>> get : user")
+                  responseFuture onComplete {
+                    case Success(jsonRef) =>
+                      friendPublicKey = jsonRef.parseJson.convertTo[F_UserE].identityKey
+
+                    case Failure(error) =>
+                      log.error(error, "Couldn't Retrieve User Data !!")
+                  }
+                  aesEncrypted = Post_aesKey.toByteArray.encryptRSA(friendPublicKey)
+
+                  sharedUserMap.put(shareWith, aesEncrypted)
+
+                }
+                  putRequest(picType, aPic = pic_ME.copy(containingAlbum=profile_ME.defaultAlbum, ownerID = user_ME.userID, userAESKeyMap = sharedUserMap.toMap))
               }
               if (z > 50 && z < 75){
                 if(myPics.nonEmpty){

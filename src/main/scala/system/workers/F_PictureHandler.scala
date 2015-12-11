@@ -68,7 +68,7 @@ class F_PictureHandler(backbone: ActorRef) extends Actor with ActorLogging {
       val defaultPictureID = getUniqueRandomBigInt(pictures)
       val album = F_AlbumE("Default Album".getBytes, "default album generated for you by Fakebook".getBytes, new Date, isDefault =  true, ownerID, id, List[BigInt](defaultPictureID))
       albums.put(id, album)
-      pictures.put(defaultPictureID, F_PictureE("default".getBytes, "default".getBytes, id, new Date, defaultPictureDataID, defaultPictureID, ownerID))
+      pictures.put(defaultPictureID, F_PictureE("default".getBytes, "default".getBytes, id, new Date, defaultPictureDataID, defaultPictureID, Map[BigInt, Array[Byte]](), ownerID))
       sender ! album
 
     case UpdateImageData(id, request) =>
