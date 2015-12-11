@@ -41,6 +41,7 @@ object CaseObjects {
 
   case object PageDeleted
 
+  case object PageJoined
 
 
   case object PostCreated
